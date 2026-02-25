@@ -56,6 +56,260 @@ local function ApplyCooldownText(cooldownViewer)
     end
 end
 
+local ACTION_BAR_BUTTON_PREFIXES = {
+    { prefix = "ActionButton", count = 12 },
+    { prefix = "MultiBarBottomLeftButton", count = 12 },
+    { prefix = "MultiBarBottomRightButton", count = 12 },
+    { prefix = "MultiBarRightButton", count = 12 },
+    { prefix = "MultiBarLeftButton", count = 12 },
+    { prefix = "MultiBar5Button", count = 12 },
+    { prefix = "MultiBar6Button", count = 12 },
+    { prefix = "MultiBar7Button", count = 12 },
+}
+
+local function GetIconSpellID(iconFrame)
+    if not iconFrame then return end
+    if iconFrame.cooldownInfo then
+        return iconFrame.cooldownInfo.overrideSpellID or iconFrame.cooldownInfo.spellID
+    end
+    if iconFrame.cooldownID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
+        local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(iconFrame.cooldownID)
+        if info then
+            return info.overrideSpellID or info.spellID
+        end
+    end
+end
+
+local function NormalizeKeybindText(key)
+    if not key or key == "" or key == RANGE_INDICATOR or key == "●" then
+        return ""
+    end
+
+    local text = key
+    if GetBindingText then
+        local bindingText = GetBindingText(key, "KEY_", true)
+        if bindingText and bindingText ~= "" then
+            text = bindingText
+        end
+    end
+
+    local upperKey = text:upper()
+    upperKey = upperKey:gsub("SHIFT%-", "S")
+    upperKey = upperKey:gsub("META%-", "M")
+    upperKey = upperKey:gsub("CTRL%-", "C")
+    upperKey = upperKey:gsub("ALT%-", "A")
+    upperKey = upperKey:gsub("STRG%-", "ST")
+    upperKey = upperKey:gsub("MOUSE%s?WHEEL%s?UP", "MWU")
+    upperKey = upperKey:gsub("MOUSE%s?WHEEL%s?DOWN", "MWD")
+    upperKey = upperKey:gsub("MIDDLE%s?MOUSE", "MM")
+    upperKey = upperKey:gsub("MOUSE%s?BUTTON%s?", "M")
+    upperKey = upperKey:gsub("BUTTON", "M")
+    upperKey = upperKey:gsub("%s+", "")
+    upperKey = upperKey:gsub("%-", "")
+
+    return upperKey
+end
+
+local function ResolveButtonKeybind(button)
+    if not button then return "" end
+    if button.HotKey and button.HotKey.GetText then
+        local hotKeyText = button.HotKey:GetText()
+        if hotKeyText and hotKeyText ~= "" then
+            return hotKeyText
+        end
+    end
+    if button.commandName and GetBindingKey then
+        local key = GetBindingKey(button.commandName)
+        if key then
+            return key
+        end
+    end
+    if button.config and button.config.keyBoundTarget and GetBindingKey then
+        local key = GetBindingKey(button.config.keyBoundTarget)
+        if key then
+            return key
+        end
+    end
+    return ""
+end
+
+local function AssignSpellKeybind(spellToKeybind, spellID, key)
+    if not spellID or spellID == 0 then return end
+    if spellToKeybind[spellID] then return end
+    local normalized = NormalizeKeybindText(key)
+    if normalized == "" then return end
+    spellToKeybind[spellID] = normalized
+end
+
+local function AssignActionSlotKeybind(spellToKeybind, slot, key)
+    if not slot or slot == 0 then return end
+    local actionType, id, subType = GetActionInfo(slot)
+    if actionType == "spell" then
+        AssignSpellKeybind(spellToKeybind, id, key)
+        return
+    end
+    if actionType == "macro" then
+        if subType == "spell" then
+            AssignSpellKeybind(spellToKeybind, id, key)
+            return
+        end
+        local macroSpellID = GetMacroSpell(id)
+        AssignSpellKeybind(spellToKeybind, macroSpellID, key)
+    end
+end
+
+local function CollectKeybindsFromActionButtons(spellToKeybind)
+    for _, bar in ipairs(ACTION_BAR_BUTTON_PREFIXES) do
+        for i = 1, bar.count do
+            local button = _G[bar.prefix .. i]
+            if button and button.action then
+                AssignActionSlotKeybind(spellToKeybind, button.action, ResolveButtonKeybind(button))
+            end
+        end
+    end
+end
+
+local function CollectKeybindsFromDominos(spellToKeybind)
+    if not DominosActionButton1 then return end
+    for i = 1, 180 do
+        local button = _G["DominosActionButton" .. i]
+        if button and button.action then
+            AssignActionSlotKeybind(spellToKeybind, button.action, ResolveButtonKeybind(button))
+        end
+    end
+end
+
+local function CollectKeybindsFromBartender(spellToKeybind)
+    if not BT4Button1 then return end
+    for i = 1, 180 do
+        local button = _G["BT4Button" .. i]
+        if button and button.action then
+            AssignActionSlotKeybind(spellToKeybind, button.action, ResolveButtonKeybind(button))
+        end
+    end
+end
+
+local function CollectKeybindsFromElvUI(spellToKeybind)
+    if not ElvUI_Bar1Button1 then return end
+    for bar = 1, 15 do
+        for buttonIndex = 1, 12 do
+            local button = _G["ElvUI_Bar" .. bar .. "Button" .. buttonIndex]
+            if button and button.action then
+                AssignActionSlotKeybind(spellToKeybind, button.action, ResolveButtonKeybind(button))
+            end
+        end
+    end
+end
+
+local function BuildSpellKeybindMap()
+    local spellToKeybind = {}
+    CollectKeybindsFromActionButtons(spellToKeybind)
+    CollectKeybindsFromDominos(spellToKeybind)
+    CollectKeybindsFromBartender(spellToKeybind)
+    CollectKeybindsFromElvUI(spellToKeybind)
+    return spellToKeybind
+end
+
+local function ResolveSpellKeybind(spellToKeybind, spellID)
+    if not spellID or spellID == 0 then return "" end
+    if spellToKeybind[spellID] then
+        return spellToKeybind[spellID]
+    end
+    if C_Spell and C_Spell.GetOverrideSpell then
+        local overrideSpellID = C_Spell.GetOverrideSpell(spellID)
+        if overrideSpellID and spellToKeybind[overrideSpellID] then
+            return spellToKeybind[overrideSpellID]
+        end
+    end
+    if C_Spell and C_Spell.GetBaseSpell then
+        local baseSpellID = C_Spell.GetBaseSpell(spellID)
+        if baseSpellID and spellToKeybind[baseSpellID] then
+            return spellToKeybind[baseSpellID]
+        end
+    end
+    return ""
+end
+
+local function GetOrCreateKeybindText(icon)
+    if icon.BCDMKeybindText then
+        return icon.BCDMKeybindText
+    end
+    local keybindText = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
+    keybindText:SetPoint("TOPRIGHT", icon, "TOPRIGHT", -2, -2)
+    keybindText:SetTextColor(1, 1, 1, 1)
+    keybindText:SetDrawLayer("OVERLAY", 7)
+    icon.BCDMKeybindText = keybindText
+    return keybindText
+end
+
+local function ApplyKeybindTextStyling(keybindText, icon)
+    if not keybindText then return end
+    local generalSettings = BCDM.db.profile.General
+    local viewerSettings = BCDM.db.profile.CooldownManager.General
+    local derivedSize = math.max(8, math.floor((icon:GetHeight() * 0.3) + 0.5))
+    local fontSize = math.max(derivedSize, math.floor(viewerSettings.CooldownText.FontSize * 0.7))
+    keybindText:SetFont(BCDM.Media.Font, fontSize, generalSettings.Fonts.FontFlag)
+    if generalSettings.Fonts.Shadow.Enabled then
+        keybindText:SetShadowColor(generalSettings.Fonts.Shadow.Colour[1], generalSettings.Fonts.Shadow.Colour[2], generalSettings.Fonts.Shadow.Colour[3], generalSettings.Fonts.Shadow.Colour[4])
+        keybindText:SetShadowOffset(generalSettings.Fonts.Shadow.OffsetX, generalSettings.Fonts.Shadow.OffsetY)
+    else
+        keybindText:SetShadowColor(0, 0, 0, 1)
+        keybindText:SetShadowOffset(1, -1)
+    end
+end
+
+local function UpdateActionButtonKeybinds(viewerName)
+    local viewer = _G[viewerName]
+    if not viewer then return end
+
+    local showKeybinds = BCDM.db.profile.CooldownManager.General.ShowActionButtonKeybinds
+    local spellToKeybind = showKeybinds and BuildSpellKeybindMap() or nil
+
+    for _, icon in ipairs({ viewer:GetChildren() }) do
+        if icon and icon.Icon then
+            local keybindText = icon.BCDMKeybindText
+            if not showKeybinds then
+                if keybindText then
+                    keybindText:Hide()
+                end
+            else
+                local spellID = GetIconSpellID(icon)
+                local binding = ResolveSpellKeybind(spellToKeybind, spellID)
+                if binding ~= "" then
+                    keybindText = GetOrCreateKeybindText(icon)
+                    ApplyKeybindTextStyling(keybindText, icon)
+                    keybindText:SetText(binding)
+                    keybindText:Show()
+                elseif keybindText then
+                    keybindText:Hide()
+                end
+            end
+        end
+    end
+end
+
+local function UpdateAllActionButtonKeybinds()
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        UpdateActionButtonKeybinds(viewerName)
+    end
+end
+
+local keybindEventFrame = CreateFrame("Frame")
+
+local function SetupActionButtonKeybindEvents()
+    keybindEventFrame:UnregisterAllEvents()
+    keybindEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    keybindEventFrame:RegisterEvent("UPDATE_BINDINGS")
+    keybindEventFrame:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+    keybindEventFrame:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
+    keybindEventFrame:RegisterEvent("UPDATE_BONUS_ACTIONBAR")
+    keybindEventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    keybindEventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    keybindEventFrame:SetScript("OnEvent", function()
+        C_Timer.After(0.05, UpdateAllActionButtonKeybinds)
+    end)
+end
+
 local function Position()
     local cooldownManagerSettings = BCDM.db.profile.CooldownManager
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
@@ -112,6 +366,14 @@ local function SetHooks()
     hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function() if InCombatLockdown() then return end Position() end)
     hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function() if InCombatLockdown() then return end BCDM.LEMO:LoadLayouts() Position() end)
     hooksecurefunc(CooldownViewerSettings, "RefreshLayout", function() if InCombatLockdown() then return end BCDM:UpdateBCDM() end)
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        local viewer = _G[viewerName]
+        if viewer and viewer.RefreshLayout then
+            hooksecurefunc(viewer, "RefreshLayout", function()
+                UpdateActionButtonKeybinds(viewerName)
+            end)
+        end
+    end
 end
 
 local function StyleChargeCount()
@@ -287,11 +549,15 @@ function BCDM:SkinCooldownManager()
     StyleChargeCount()
     Position()
     SetHooks()
+    SetupActionButtonKeybindEvents()
     SetupCenterBuffs()
     if EssentialCooldownViewer and EssentialCooldownViewer.RefreshLayout then hooksecurefunc(EssentialCooldownViewer, "RefreshLayout", function() CenterWrappedIcons() end) end
     if UtilityCooldownViewer and UtilityCooldownViewer.RefreshLayout then hooksecurefunc(UtilityCooldownViewer, "RefreshLayout", function() CenterWrappedIcons() end) end
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
-        C_Timer.After(0.1, function() ApplyCooldownText(viewerName) end)
+        C_Timer.After(0.1, function()
+            ApplyCooldownText(viewerName)
+            UpdateActionButtonKeybinds(viewerName)
+        end)
     end
 
     C_Timer.After(1, function()
@@ -340,6 +606,7 @@ function BCDM:UpdateCooldownViewer(viewerType)
     StyleChargeCount()
 
     ApplyCooldownText(BCDM.DBViewerToCooldownManagerViewer[viewerType])
+    UpdateActionButtonKeybinds(BCDM.DBViewerToCooldownManagerViewer[viewerType])
 
     BCDM:UpdatePowerBarWidth()
     BCDM:UpdateSecondaryPowerBarWidth()

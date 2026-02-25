@@ -80,6 +80,7 @@ local Defaults = {
                 IconZoom = 0.1,
                 BorderSize = 1,
                 DisableAuraOverlay = false,
+                ShowActionButtonKeybinds = true,
                 Glow = {
                     Enabled = true,
                     Type = "Pixel",
