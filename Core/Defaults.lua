@@ -81,6 +81,7 @@ local Defaults = {
                 BorderSize = 1,
                 DisableAuraOverlay = false,
                 ShowActionButtonKeybinds = true,
+                HighlightAssist = false,
                 KeybindText = {
                     FontSize = 12,
                     Anchor = "TOPRIGHT",

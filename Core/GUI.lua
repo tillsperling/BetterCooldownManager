@@ -995,6 +995,7 @@ end
 local function CreateGlobalSettings(parentContainer)
     local GeneralDB = BCDM.db.profile.General
     local CooldownManagerDB = BCDM.db.profile.CooldownManager
+    CooldownManagerDB.General.HighlightAssist = CooldownManagerDB.General.HighlightAssist or false
     CooldownManagerDB.General.KeybindText = CooldownManagerDB.General.KeybindText or {}
     CooldownManagerDB.General.KeybindText.FontSize = CooldownManagerDB.General.KeybindText.FontSize or 12
     CooldownManagerDB.General.KeybindText.Anchor = CooldownManagerDB.General.KeybindText.Anchor or "TOPRIGHT"
@@ -1219,6 +1220,22 @@ local function CreateGlobalSettings(parentContainer)
     end)
     keybindAnchorDropdown:SetRelativeWidth(0.33)
     keybindSettingsContainer:AddChild(keybindAnchorDropdown)
+
+    local highlightAssistContainer = AG:Create("InlineGroup")
+    highlightAssistContainer:SetTitle(LL("Highlight Assist"))
+    highlightAssistContainer:SetFullWidth(true)
+    highlightAssistContainer:SetLayout("Flow")
+    globalSettingsContainer:AddChild(highlightAssistContainer)
+
+    local highlightAssistCheckbox = AG:Create("CheckBox")
+    highlightAssistCheckbox:SetLabel(LL("Enable Highlight Assist"))
+    highlightAssistCheckbox:SetValue(CooldownManagerDB.General.HighlightAssist)
+    highlightAssistCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        CooldownManagerDB.General.HighlightAssist = value
+        BCDM:RefreshAssistHighlight()
+    end)
+    highlightAssistCheckbox:SetRelativeWidth(0.5)
+    highlightAssistContainer:AddChild(highlightAssistCheckbox)
 
     ScrollFrame:DoLayout()
 

@@ -327,6 +327,207 @@ local function SetupActionButtonKeybindEvents()
     end)
 end
 
+local ASSIST_FLIPBOOK = {
+    atlas = "RotationHelper_Ants_Flipbook_2x",
+    rows = 6,
+    columns = 5,
+    frames = 30,
+    duration = 1.0,
+    scale = 1.5,
+}
+
+local assistEventFrame = CreateFrame("Frame")
+local assistManagerHooked = false
+local assistViewerHooksInitialized = false
+
+local function IsAssistEnabled()
+    return BCDM.db
+        and BCDM.db.profile
+        and BCDM.db.profile.CooldownManager
+        and BCDM.db.profile.CooldownManager.General
+        and BCDM.db.profile.CooldownManager.General.HighlightAssist
+end
+
+local function GetOrCreateAssistFlipbook(icon)
+    if icon.BCDMAssistFlipbook then
+        local iconWidth, iconHeight = icon:GetSize()
+        icon.BCDMAssistFlipbook.Texture:SetSize(iconWidth * ASSIST_FLIPBOOK.scale, iconHeight * ASSIST_FLIPBOOK.scale)
+        return icon.BCDMAssistFlipbook
+    end
+
+    local flipbookFrame = CreateFrame("Frame", nil, icon)
+    flipbookFrame:SetFrameLevel(icon:GetFrameLevel() + 10)
+    flipbookFrame:SetAllPoints(icon)
+
+    local flipbookTexture = flipbookFrame:CreateTexture(nil, "OVERLAY")
+    flipbookTexture:SetAtlas(ASSIST_FLIPBOOK.atlas)
+    flipbookTexture:SetBlendMode("ADD")
+    flipbookTexture:SetPoint("CENTER", icon, "CENTER", 0, 0)
+    local iconWidth, iconHeight = icon:GetSize()
+    flipbookTexture:SetSize(iconWidth * ASSIST_FLIPBOOK.scale, iconHeight * ASSIST_FLIPBOOK.scale)
+    flipbookFrame.Texture = flipbookTexture
+
+    local animGroup = flipbookFrame:CreateAnimationGroup()
+    animGroup:SetLooping("REPEAT")
+    animGroup:SetToFinalAlpha(true)
+    flipbookFrame.Anim = animGroup
+
+    local alphaAnim = animGroup:CreateAnimation("Alpha")
+    alphaAnim:SetChildKey("Texture")
+    alphaAnim:SetFromAlpha(1)
+    alphaAnim:SetToAlpha(1)
+    alphaAnim:SetDuration(0.001)
+    alphaAnim:SetOrder(0)
+
+    local flipAnim = animGroup:CreateAnimation("FlipBook")
+    flipAnim:SetChildKey("Texture")
+    flipAnim:SetDuration(ASSIST_FLIPBOOK.duration)
+    flipAnim:SetOrder(0)
+    flipAnim:SetFlipBookRows(ASSIST_FLIPBOOK.rows)
+    flipAnim:SetFlipBookColumns(ASSIST_FLIPBOOK.columns)
+    flipAnim:SetFlipBookFrames(ASSIST_FLIPBOOK.frames)
+    flipAnim:SetFlipBookFrameWidth(0)
+    flipAnim:SetFlipBookFrameHeight(0)
+
+    flipbookFrame:SetAlpha(0)
+    flipbookFrame:Show()
+    icon.BCDMAssistFlipbook = flipbookFrame
+    return flipbookFrame
+end
+
+local function HideAssistFlipbook(icon)
+    if not icon or not icon.BCDMAssistFlipbook then return end
+    icon.BCDMAssistFlipbook:SetAlpha(0)
+    if icon.BCDMAssistFlipbook.Anim and icon.BCDMAssistFlipbook.Anim:IsPlaying() then
+        icon.BCDMAssistFlipbook.Anim:Stop()
+    end
+end
+
+local function HideAllAssistFlipbooks()
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        local viewer = _G[viewerName]
+        if viewer then
+            for _, icon in ipairs({ viewer:GetChildren() }) do
+                HideAssistFlipbook(icon)
+            end
+        end
+    end
+end
+
+local function GetSuggestedAssistSpell()
+    if not C_AssistedCombat or not C_AssistedCombat.GetNextCastSpell then
+        return nil
+    end
+    return C_AssistedCombat.GetNextCastSpell()
+end
+
+local function UpdateAssistHighlightForIcon(icon, suggestedSpellID)
+    if not icon or not icon.Icon then return end
+    if not IsAssistEnabled() then
+        HideAssistFlipbook(icon)
+        return
+    end
+    if not suggestedSpellID then
+        HideAssistFlipbook(icon)
+        return
+    end
+
+    local iconSpellID, overrideSpellID = GetIconSpellID(icon), nil
+    if icon.cooldownInfo then
+        overrideSpellID = icon.cooldownInfo.overrideSpellID
+    elseif icon.cooldownID and C_CooldownViewer and C_CooldownViewer.GetCooldownViewerCooldownInfo then
+        local info = C_CooldownViewer.GetCooldownViewerCooldownInfo(icon.cooldownID)
+        overrideSpellID = info and info.overrideSpellID or nil
+    end
+
+    local isSuggested = iconSpellID and (iconSpellID == suggestedSpellID or (overrideSpellID and overrideSpellID == suggestedSpellID))
+    local flipbook = GetOrCreateAssistFlipbook(icon)
+    if isSuggested then
+        flipbook:SetAlpha(1)
+        if flipbook.Anim and not flipbook.Anim:IsPlaying() then
+            flipbook.Anim:Play()
+        end
+    else
+        HideAssistFlipbook(icon)
+    end
+end
+
+local function UpdateAssistHighlightsForViewer(viewerName)
+    local viewer = _G[viewerName]
+    if not viewer then return end
+    local suggestedSpellID = GetSuggestedAssistSpell()
+    for _, icon in ipairs({ viewer:GetChildren() }) do
+        UpdateAssistHighlightForIcon(icon, suggestedSpellID)
+    end
+end
+
+local function UpdateAllAssistHighlights()
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        UpdateAssistHighlightsForViewer(viewerName)
+    end
+end
+
+local function HookAssistManager()
+    if assistManagerHooked then return end
+    if not AssistedCombatManager then return end
+    if not AssistedCombatManager.UpdateAllAssistedHighlightFramesForSpell then return end
+    hooksecurefunc(AssistedCombatManager, "UpdateAllAssistedHighlightFramesForSpell", function()
+        if IsAssistEnabled() then
+            UpdateAllAssistHighlights()
+        end
+    end)
+    assistManagerHooked = true
+end
+
+local function SetupAssistViewerHooks()
+    if assistViewerHooksInitialized then return end
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        local viewer = _G[viewerName]
+        if viewer and viewer.RefreshLayout then
+            hooksecurefunc(viewer, "RefreshLayout", function()
+                if IsAssistEnabled() then
+                    UpdateAssistHighlightsForViewer(viewerName)
+                end
+            end)
+        end
+    end
+    assistViewerHooksInitialized = true
+end
+
+function BCDM:RefreshAssistHighlight()
+    assistEventFrame:UnregisterAllEvents()
+    assistEventFrame:SetScript("OnEvent", nil)
+
+    if not IsAssistEnabled() then
+        HideAllAssistFlipbooks()
+        return
+    end
+
+    if C_CVar and C_CVar.GetCVar and C_CVar.SetCVar and C_CVar.GetCVar("assistedCombatHighlight") ~= "1" then
+        C_CVar.SetCVar("assistedCombatHighlight", "1")
+    end
+
+    HookAssistManager()
+    SetupAssistViewerHooks()
+
+    assistEventFrame:RegisterEvent("ADDON_LOADED")
+    assistEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    assistEventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
+    assistEventFrame:RegisterEvent("SPELLS_CHANGED")
+    assistEventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    assistEventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    assistEventFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
+    assistEventFrame:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
+    assistEventFrame:SetScript("OnEvent", function(_, event, addon)
+        if event == "ADDON_LOADED" and addon == "Blizzard_AssistedCombat" then
+            HookAssistManager()
+        end
+        C_Timer.After(0.05, UpdateAllAssistHighlights)
+    end)
+
+    C_Timer.After(0.05, UpdateAllAssistHighlights)
+end
+
 local function Position()
     local cooldownManagerSettings = BCDM.db.profile.CooldownManager
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
@@ -568,12 +769,14 @@ function BCDM:SkinCooldownManager()
     SetHooks()
     SetupActionButtonKeybindEvents()
     SetupCenterBuffs()
+    BCDM:RefreshAssistHighlight()
     if EssentialCooldownViewer and EssentialCooldownViewer.RefreshLayout then hooksecurefunc(EssentialCooldownViewer, "RefreshLayout", function() CenterWrappedIcons() end) end
     if UtilityCooldownViewer and UtilityCooldownViewer.RefreshLayout then hooksecurefunc(UtilityCooldownViewer, "RefreshLayout", function() CenterWrappedIcons() end) end
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
         C_Timer.After(0.1, function()
             ApplyCooldownText(viewerName)
             UpdateActionButtonKeybinds(viewerName)
+            UpdateAssistHighlightsForViewer(viewerName)
         end)
     end
 
@@ -624,6 +827,7 @@ function BCDM:UpdateCooldownViewer(viewerType)
 
     ApplyCooldownText(BCDM.DBViewerToCooldownManagerViewer[viewerType])
     UpdateActionButtonKeybinds(BCDM.DBViewerToCooldownManagerViewer[viewerType])
+    UpdateAssistHighlightsForViewer(BCDM.DBViewerToCooldownManagerViewer[viewerType])
 
     BCDM:UpdatePowerBarWidth()
     BCDM:UpdateSecondaryPowerBarWidth()
