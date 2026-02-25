@@ -995,6 +995,9 @@ end
 local function CreateGlobalSettings(parentContainer)
     local GeneralDB = BCDM.db.profile.General
     local CooldownManagerDB = BCDM.db.profile.CooldownManager
+    CooldownManagerDB.General.KeybindText = CooldownManagerDB.General.KeybindText or {}
+    CooldownManagerDB.General.KeybindText.FontSize = CooldownManagerDB.General.KeybindText.FontSize or 12
+    CooldownManagerDB.General.KeybindText.Anchor = CooldownManagerDB.General.KeybindText.Anchor or "TOPRIGHT"
 
     local ScrollFrame = AG:Create("ScrollFrame")
     ScrollFrame:SetLayout("Flow")
@@ -1025,32 +1028,22 @@ local function CreateGlobalSettings(parentContainer)
         }
         StaticPopup_Show("BCDM_RELOAD_UI")
     end)
-    enableCDMSkinningCheckbox:SetRelativeWidth(0.25)
+    enableCDMSkinningCheckbox:SetRelativeWidth(0.33)
     globalSettingsContainer:AddChild(enableCDMSkinningCheckbox)
 
     local disableAuraOverlayCheckbox = AG:Create("CheckBox")
     disableAuraOverlayCheckbox:SetLabel(LL("Disable Aura Overlay"))
     disableAuraOverlayCheckbox:SetValue(CooldownManagerDB.General.DisableAuraOverlay)
     disableAuraOverlayCheckbox:SetCallback("OnValueChanged", function(_, _, value) CooldownManagerDB.General.DisableAuraOverlay = value BCDM:RefreshAuraOverlayRemoval() end)
-    disableAuraOverlayCheckbox:SetRelativeWidth(0.25)
+    disableAuraOverlayCheckbox:SetRelativeWidth(0.33)
     globalSettingsContainer:AddChild(disableAuraOverlayCheckbox)
 
     local disableChatPrintsCheckbox = AG:Create("CheckBox")
     disableChatPrintsCheckbox:SetLabel(LL("Display Login Message"))
     disableChatPrintsCheckbox:SetValue(BCDM.db.global.DisplayLoginMessage)
     disableChatPrintsCheckbox:SetCallback("OnValueChanged", function(_, _, value) BCDM.db.global.DisplayLoginMessage = value end)
-    disableChatPrintsCheckbox:SetRelativeWidth(0.25)
+    disableChatPrintsCheckbox:SetRelativeWidth(0.33)
     globalSettingsContainer:AddChild(disableChatPrintsCheckbox)
-
-    local showActionButtonKeybindsCheckbox = AG:Create("CheckBox")
-    showActionButtonKeybindsCheckbox:SetLabel(LL("Display Keybinds"))
-    showActionButtonKeybindsCheckbox:SetValue(CooldownManagerDB.General.ShowActionButtonKeybinds)
-    showActionButtonKeybindsCheckbox:SetCallback("OnValueChanged", function(_, _, value)
-        CooldownManagerDB.General.ShowActionButtonKeybinds = value
-        BCDM:UpdateCooldownViewers()
-    end)
-    showActionButtonKeybindsCheckbox:SetRelativeWidth(0.25)
-    globalSettingsContainer:AddChild(showActionButtonKeybindsCheckbox)
 
     local iconZoomSlider = AG:Create("Slider")
     iconZoomSlider:SetLabel(LL("Icon Zoom"))
@@ -1183,6 +1176,49 @@ local function CreateGlobalSettings(parentContainer)
     AnimationContainer:AddChild(smoothBarsCheckbox)
 
     CreateCooldownTextSettings(globalSettingsContainer)
+
+    local keybindSettingsContainer = AG:Create("InlineGroup")
+    keybindSettingsContainer:SetTitle(LL("Keybind Settings"))
+    keybindSettingsContainer:SetFullWidth(true)
+    keybindSettingsContainer:SetLayout("Flow")
+    globalSettingsContainer:AddChild(keybindSettingsContainer)
+
+    local showActionButtonKeybindsCheckbox = AG:Create("CheckBox")
+    showActionButtonKeybindsCheckbox:SetLabel(LL("Display Keybinds"))
+    showActionButtonKeybindsCheckbox:SetValue(CooldownManagerDB.General.ShowActionButtonKeybinds)
+    showActionButtonKeybindsCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        CooldownManagerDB.General.ShowActionButtonKeybinds = value
+        BCDM:UpdateCooldownViewers()
+    end)
+    showActionButtonKeybindsCheckbox:SetRelativeWidth(0.33)
+    keybindSettingsContainer:AddChild(showActionButtonKeybindsCheckbox)
+
+    local keybindFontSizeSlider = AG:Create("Slider")
+    keybindFontSizeSlider:SetLabel(LL("Font Size"))
+    keybindFontSizeSlider:SetValue(CooldownManagerDB.General.KeybindText.FontSize)
+    keybindFontSizeSlider:SetSliderValues(6, 32, 1)
+    keybindFontSizeSlider:SetCallback("OnValueChanged", function(_, _, value)
+        CooldownManagerDB.General.KeybindText.FontSize = value
+        BCDM:UpdateCooldownViewers()
+    end)
+    keybindFontSizeSlider:SetRelativeWidth(0.33)
+    keybindSettingsContainer:AddChild(keybindFontSizeSlider)
+
+    local keybindAnchorDropdown = AG:Create("Dropdown")
+    keybindAnchorDropdown:SetLabel(LL("Anchor"))
+    keybindAnchorDropdown:SetList({
+        ["TOPLEFT"] = LL("Upper Left"),
+        ["TOPRIGHT"] = LL("Upper Right"),
+        ["BOTTOMLEFT"] = LL("Lower Left"),
+        ["BOTTOMRIGHT"] = LL("Lower Right"),
+    })
+    keybindAnchorDropdown:SetValue(CooldownManagerDB.General.KeybindText.Anchor)
+    keybindAnchorDropdown:SetCallback("OnValueChanged", function(_, _, value)
+        CooldownManagerDB.General.KeybindText.Anchor = value
+        BCDM:UpdateCooldownViewers()
+    end)
+    keybindAnchorDropdown:SetRelativeWidth(0.33)
+    keybindSettingsContainer:AddChild(keybindAnchorDropdown)
 
     ScrollFrame:DoLayout()
 

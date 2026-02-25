@@ -242,12 +242,29 @@ local function GetOrCreateKeybindText(icon)
     return keybindText
 end
 
+local function GetKeybindTextAnchor()
+    local keybindSettings = BCDM.db.profile.CooldownManager.General.KeybindText or {}
+    local anchor = keybindSettings.Anchor or "TOPRIGHT"
+    if anchor == "TOPLEFT" then
+        return "TOPLEFT", 2, -2
+    end
+    if anchor == "BOTTOMLEFT" then
+        return "BOTTOMLEFT", 2, 2
+    end
+    if anchor == "BOTTOMRIGHT" then
+        return "BOTTOMRIGHT", -2, 2
+    end
+    return "TOPRIGHT", -2, -2
+end
+
 local function ApplyKeybindTextStyling(keybindText, icon)
     if not keybindText then return end
     local generalSettings = BCDM.db.profile.General
-    local viewerSettings = BCDM.db.profile.CooldownManager.General
-    local derivedSize = math.max(8, math.floor((icon:GetHeight() * 0.3) + 0.5))
-    local fontSize = math.max(derivedSize, math.floor(viewerSettings.CooldownText.FontSize * 0.7))
+    local keybindSettings = BCDM.db.profile.CooldownManager.General.KeybindText or {}
+    local anchor, offsetX, offsetY = GetKeybindTextAnchor()
+    local fontSize = keybindSettings.FontSize or 12
+    keybindText:ClearAllPoints()
+    keybindText:SetPoint(anchor, icon, anchor, offsetX, offsetY)
     keybindText:SetFont(BCDM.Media.Font, fontSize, generalSettings.Fonts.FontFlag)
     if generalSettings.Fonts.Shadow.Enabled then
         keybindText:SetShadowColor(generalSettings.Fonts.Shadow.Colour[1], generalSettings.Fonts.Shadow.Colour[2], generalSettings.Fonts.Shadow.Colour[3], generalSettings.Fonts.Shadow.Colour[4])

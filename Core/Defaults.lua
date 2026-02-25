@@ -81,6 +81,10 @@ local Defaults = {
                 BorderSize = 1,
                 DisableAuraOverlay = false,
                 ShowActionButtonKeybinds = true,
+                KeybindText = {
+                    FontSize = 12,
+                    Anchor = "TOPRIGHT",
+                },
                 Glow = {
                     Enabled = true,
                     Type = "Pixel",
