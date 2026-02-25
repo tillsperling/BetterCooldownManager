@@ -279,6 +279,15 @@ local function UpdateActionButtonKeybinds(viewerName)
     local viewer = _G[viewerName]
     if not viewer then return end
 
+    if viewerName == "BuffIconCooldownViewer" then
+        for _, icon in ipairs({ viewer:GetChildren() }) do
+            if icon and icon.BCDMKeybindText then
+                icon.BCDMKeybindText:Hide()
+            end
+        end
+        return
+    end
+
     local showKeybinds = BCDM.db.profile.CooldownManager.General.ShowActionButtonKeybinds
     local spellToKeybind = showKeybinds and BuildSpellKeybindMap() or nil
 
@@ -306,7 +315,7 @@ local function UpdateActionButtonKeybinds(viewerName)
 end
 
 local function UpdateAllActionButtonKeybinds()
-    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+    for _, viewerName in ipairs({"EssentialCooldownViewer", "UtilityCooldownViewer"}) do
         UpdateActionButtonKeybinds(viewerName)
     end
 end
