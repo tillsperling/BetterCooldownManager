@@ -58,12 +58,23 @@ end
 local function ResolveCastBarAnchorParentName()
     local CastBarDB = BCDM.db.profile.CastBar
     if CastBarDB.Layout[2] == "ACTIVE_RESOURCE" then
+        if BCDM.HasActiveTertiaryResource and BCDM:HasActiveTertiaryResource() then
+            local tertiaryDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.TertiaryResourceBar
+            local tertiaryAnchorsToCastBar = tertiaryDB and tertiaryDB.Layout and tertiaryDB.Layout[2] == "BCDM_CastBar"
+            if not tertiaryAnchorsToCastBar then
+                return "BCDM_TertiaryResourceBar"
+            end
+        end
         if HasSecondaryPowerForCurrentSpec() then
             return "BCDM_SecondaryPowerBar"
         end
         return "BCDM_PowerBar"
     end
     return CastBarDB.Layout[2]
+end
+
+local function ResolveCastBarWidthAnchor()
+    return _G["EssentialCooldownViewer"]
 end
 
 local function CreatePips(empoweredStages)
@@ -204,7 +215,7 @@ function BCDM:CreateCastBar()
     CastBar:SetFrameStrata(CastBarDB.FrameStrata or "LOW")
 
     if CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[anchorParentName]
+        local anchorFrame = ResolveCastBarWidthAnchor()
         if anchorFrame then
             C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
         end
@@ -310,7 +321,7 @@ function BCDM:UpdateCastBar()
     BCDM.CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
 
     if CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[anchorParentName]
+        local anchorFrame = ResolveCastBarWidthAnchor()
         if anchorFrame then
             C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
         end
@@ -421,7 +432,7 @@ function BCDM:UpdateCastBarWidth()
     local CastBarDB = BCDM.db.profile.CastBar
     local CastBar = BCDM.CastBar
     if CastBarDB.Enabled and CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[ResolveCastBarAnchorParentName()]
+        local anchorFrame = ResolveCastBarWidthAnchor()
         if anchorFrame then
             C_Timer.After(0.5, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
         end

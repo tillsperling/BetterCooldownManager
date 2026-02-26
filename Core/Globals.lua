@@ -213,6 +213,7 @@ function BCDM:UpdateBCDM()
     BCDM:UpdateCooldownViewer("Buffs")
     BCDM:UpdatePowerBar()
     BCDM:UpdateSecondaryPowerBar()
+    BCDM:UpdateTertiaryResourceBar()
     BCDM:UpdateCastBar()
     BCDM:UpdateCustomCooldownViewer()
     BCDM:UpdateAdditionalCustomCooldownViewer()
@@ -586,8 +587,19 @@ BCDM.AnchorParents = {
             ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_TertiaryResourceBar"] = "|cFF8080FFBCDM|r: Tertiary Resource Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BCDM_PowerBar", "BCDM_SecondaryPowerBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_TertiaryResourceBar" },
+    },
+    ["TertiaryResource"] = {
+        {
+            ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
+            ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
+            ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
+            ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_CastBar"] = "|cFF8080FFBCDM|r: Cast Bar",
+        },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CastBar" },
     }
 }
 

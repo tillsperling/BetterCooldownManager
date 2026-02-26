@@ -2889,6 +2889,171 @@ local function CreateCastBarSettings(parentContainer)
     return ScrollFrame
 end
 
+local function CreateTertiaryResourceBarSettings(parentContainer)
+    local db = BCDM.db.profile.TertiaryResourceBar
+    local RefreshTertiaryResourceBarGUISettings
+
+    local ScrollFrame = AG:Create("ScrollFrame")
+    ScrollFrame:SetLayout("Flow")
+    ScrollFrame:SetFullWidth(true)
+    ScrollFrame:SetFullHeight(true)
+    parentContainer:AddChild(ScrollFrame)
+
+    local toggleContainer = AG:Create("InlineGroup")
+    toggleContainer:SetTitle(LL("Toggles & Colours"))
+    toggleContainer:SetFullWidth(true)
+    toggleContainer:SetLayout("Flow")
+    ScrollFrame:AddChild(toggleContainer)
+
+    local enabledCheckbox = AG:Create("CheckBox")
+    enabledCheckbox:SetLabel(LL("Enable"))
+    enabledCheckbox:SetValue(db.Enabled)
+    enabledCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        db.Enabled = value
+        BCDM:UpdateTertiaryResourceBar()
+        BCDM:UpdateCastBar()
+        if RefreshTertiaryResourceBarGUISettings then
+            RefreshTertiaryResourceBarGUISettings()
+        end
+    end)
+    enabledCheckbox:SetRelativeWidth(0.33)
+    toggleContainer:AddChild(enabledCheckbox)
+
+    local matchAnchorWidthCheckbox = AG:Create("CheckBox")
+    matchAnchorWidthCheckbox:SetLabel(LL("Match Width Of Essential CDM"))
+    matchAnchorWidthCheckbox:SetValue(db.MatchWidthOfAnchor)
+    matchAnchorWidthCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        db.MatchWidthOfAnchor = value
+        BCDM:UpdateTertiaryResourceBar()
+        if RefreshTertiaryResourceBarGUISettings then
+            RefreshTertiaryResourceBarGUISettings()
+        end
+    end)
+    matchAnchorWidthCheckbox:SetRelativeWidth(0.33)
+    toggleContainer:AddChild(matchAnchorWidthCheckbox)
+
+    local foregroundColourPicker = AG:Create("ColorPicker")
+    foregroundColourPicker:SetLabel(LL("Foreground Colour"))
+    foregroundColourPicker:SetColor(db.ForegroundColour[1], db.ForegroundColour[2], db.ForegroundColour[3], db.ForegroundColour[4])
+    foregroundColourPicker:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
+        db.ForegroundColour = {r, g, b, a}
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    foregroundColourPicker:SetRelativeWidth(0.5)
+    foregroundColourPicker:SetHasAlpha(true)
+    toggleContainer:AddChild(foregroundColourPicker)
+
+    local backgroundColourPicker = AG:Create("ColorPicker")
+    backgroundColourPicker:SetLabel(LL("Background Colour"))
+    backgroundColourPicker:SetColor(db.BackgroundColour[1], db.BackgroundColour[2], db.BackgroundColour[3], db.BackgroundColour[4])
+    backgroundColourPicker:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
+        db.BackgroundColour = {r, g, b, a}
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    backgroundColourPicker:SetRelativeWidth(0.5)
+    backgroundColourPicker:SetHasAlpha(true)
+    toggleContainer:AddChild(backgroundColourPicker)
+
+    local layoutContainer = AG:Create("InlineGroup")
+    layoutContainer:SetTitle(LL("Layout & Positioning"))
+    layoutContainer:SetFullWidth(true)
+    layoutContainer:SetLayout("Flow")
+    ScrollFrame:AddChild(layoutContainer)
+
+    local anchorFromDropdown = AG:Create("Dropdown")
+    anchorFromDropdown:SetLabel(LL("Anchor From"))
+    anchorFromDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+    anchorFromDropdown:SetValue(db.Layout[1])
+    anchorFromDropdown:SetCallback("OnValueChanged", function(_, _, value) db.Layout[1] = value BCDM:UpdateTertiaryResourceBar() end)
+    anchorFromDropdown:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(anchorFromDropdown)
+
+    local anchorParentDropdown = AG:Create("Dropdown")
+    anchorParentDropdown:SetLabel(LL("Anchor Parent"))
+    anchorParentDropdown:SetList(AnchorParents["TertiaryResource"][1], AnchorParents["TertiaryResource"][2])
+    anchorParentDropdown:SetValue(db.Layout[2])
+    anchorParentDropdown:SetCallback("OnValueChanged", function(_, _, value) db.Layout[2] = value BCDM:UpdateTertiaryResourceBar() end)
+    anchorParentDropdown:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(anchorParentDropdown)
+
+    local anchorToDropdown = AG:Create("Dropdown")
+    anchorToDropdown:SetLabel(LL("Anchor To"))
+    anchorToDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+    anchorToDropdown:SetValue(db.Layout[3])
+    anchorToDropdown:SetCallback("OnValueChanged", function(_, _, value) db.Layout[3] = value BCDM:UpdateTertiaryResourceBar() end)
+    anchorToDropdown:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(anchorToDropdown)
+
+    local widthSlider = AG:Create("Slider")
+    widthSlider:SetLabel(LL("Width"))
+    widthSlider:SetValue(db.Width)
+    widthSlider:SetSliderValues(50, 3000, 0.1)
+    widthSlider:SetCallback("OnValueChanged", function(_, _, value) db.Width = value BCDM:UpdateTertiaryResourceBar() end)
+    widthSlider:SetRelativeWidth(0.5)
+    layoutContainer:AddChild(widthSlider)
+
+    local heightSlider = AG:Create("Slider")
+    heightSlider:SetLabel(LL("Height"))
+    heightSlider:SetValue(db.Height)
+    heightSlider:SetSliderValues(1, 100, 0.1)
+    heightSlider:SetCallback("OnValueChanged", function(_, _, value) db.Height = value BCDM:UpdateTertiaryResourceBar() end)
+    heightSlider:SetRelativeWidth(0.5)
+    layoutContainer:AddChild(heightSlider)
+
+    local xOffsetSlider = AG:Create("Slider")
+    xOffsetSlider:SetLabel(LL("X Offset"))
+    xOffsetSlider:SetValue(db.Layout[4])
+    xOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+    xOffsetSlider:SetCallback("OnValueChanged", function(_, _, value) db.Layout[4] = value BCDM:UpdateTertiaryResourceBar() end)
+    xOffsetSlider:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(xOffsetSlider)
+
+    local yOffsetSlider = AG:Create("Slider")
+    yOffsetSlider:SetLabel(LL("Y Offset"))
+    yOffsetSlider:SetValue(db.Layout[5])
+    yOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+    yOffsetSlider:SetCallback("OnValueChanged", function(_, _, value) db.Layout[5] = value BCDM:UpdateTertiaryResourceBar() end)
+    yOffsetSlider:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(yOffsetSlider)
+
+    local frameStrataDropdown = AG:Create("Dropdown")
+    frameStrataDropdown:SetLabel(LL("Frame Strata"))
+    frameStrataDropdown:SetList({["BACKGROUND"] = "Background", ["LOW"] = "Low", ["MEDIUM"] = "Medium", ["HIGH"] = "High", ["DIALOG"] = "Dialog", ["FULLSCREEN"] = "Fullscreen", ["FULLSCREEN_DIALOG"] = "Fullscreen Dialog", ["TOOLTIP"] = "Tooltip"}, {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"})
+    frameStrataDropdown:SetValue(db.FrameStrata)
+    frameStrataDropdown:SetCallback("OnValueChanged", function(_, _, value) db.FrameStrata = value BCDM:UpdateTertiaryResourceBar() end)
+    frameStrataDropdown:SetRelativeWidth(0.33)
+    layoutContainer:AddChild(frameStrataDropdown)
+
+    function RefreshTertiaryResourceBarGUISettings()
+        if not db.Enabled then
+            for _, child in ipairs(toggleContainer.children) do
+                if child ~= enabledCheckbox then
+                    child:SetDisabled(true)
+                end
+            end
+            for _, child in ipairs(layoutContainer.children) do
+                child:SetDisabled(true)
+            end
+        else
+            for _, child in ipairs(toggleContainer.children) do
+                child:SetDisabled(false)
+            end
+            for _, child in ipairs(layoutContainer.children) do
+                child:SetDisabled(false)
+            end
+            if db.MatchWidthOfAnchor then
+                widthSlider:SetDisabled(true)
+            else
+                widthSlider:SetDisabled(false)
+            end
+        end
+    end
+
+    RefreshTertiaryResourceBarGUISettings()
+    ScrollFrame:DoLayout()
+    return ScrollFrame
+end
+
 local function CreateProfileSettings(containerParent)
     local ScrollFrame = AG:Create("ScrollFrame")
     ScrollFrame:SetLayout("Flow")
@@ -3150,6 +3315,8 @@ function BCDM:CreateGUI()
             CreatePowerBarSettings(Wrapper)
         elseif MainTab == "SecondaryPowerBar" then
             CreateSecondaryPowerBarSettings(Wrapper)
+        elseif MainTab == "TertiaryPowerBar" then
+            CreateTertiaryResourceBarSettings(Wrapper)
         elseif MainTab == "CastBar" then
             CreateCastBarSettings(Wrapper)
         elseif MainTab == "Profiles" then
@@ -3180,6 +3347,7 @@ function BCDM:CreateGUI()
         { text = LL("Items & Spells"), value = "ItemSpell"},
         { text = LL("Power Bar"), value = "PowerBar"},
         { text = LL("Secondary Power Bar"), value = "SecondaryPowerBar"},
+        { text = LL("Tertiary Power Bar"), value = "TertiaryPowerBar"},
         { text = LL("Cast Bar"), value = "CastBar"},
         { text = LL("Profiles"), value = "Profiles"},
     })

@@ -11,5 +11,6 @@
 	<Script file="TrinketBar.lua"/>
 	<Script file="PowerBar.lua"/>
 	<Script file="SecondaryPowerBar.lua"/>
+	<Script file="TertiaryResourceBar.lua"/>
 	<Script file="EditMode.lua"/>
 </Ui>

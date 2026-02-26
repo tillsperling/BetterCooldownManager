@@ -15,6 +15,7 @@ L["Trinkets"] = "Trinkets"
 L["Items & Spells"] = "Items / Spells"
 L["Power Bar"] = "Power Bar"
 L["Secondary Power Bar"] = "Secondary Power Bar"
+L["Tertiary Power Bar"] = "Tertiary Power Bar"
 L["Cast Bar"] = "Cast Bar"
 L["Profiles"] = "Profiles"
 
@@ -67,6 +68,7 @@ L["Enable Cast Bar"] = "Enable Cast Bar"
 L["Enable Power Bar"] = "Enable Power Bar"
 L["Reset Profile"] = "Reset Profile"
 L["Use Global Profile Settings"] = "Use Global Profile Settings"
+L["Match Width Of Essential CDM"] = "Match Width Of Essential CDM"
 
 -- [[ Support & Links ]]
 L["Join the Discord Community!"] = "Join the Discord Community!"

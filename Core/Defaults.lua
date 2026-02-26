@@ -508,6 +508,16 @@ local Defaults = {
                 Layout = "LEFT",
             }
         },
+        TertiaryResourceBar = {
+            Enabled = false,
+            Width = 200,
+            Height = 6,
+            MatchWidthOfAnchor = true,
+            FrameStrata = "LOW",
+            BackgroundColour = {34/255, 34/255, 34/255, 1},
+            ForegroundColour = {34/255, 34/255, 34/255, 1},
+            Layout = {"TOP", "BCDM_PowerBar", "BOTTOM", 0, -1},
+        },
     },
 }
 
