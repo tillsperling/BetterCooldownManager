@@ -1,11 +1,11 @@
 local _, BCDM = ...
 local resizeTimer = nil
+local trackedAuraCache = {}
 
 -- Define tracked tertiary buffs per class/spec here.
--- Example: DEMONHUNTER Vengeance (581) -> Demon Spikes.
 local TERTIARY_TRACKED_BUFFS = {
     DEMONHUNTER = {
-        [581] = 203819,
+        [581] = 203819, -- Vengeance: Demon Spikes
     },
 }
 
@@ -19,6 +19,54 @@ local function ResolveTrackedBuffSpellID()
     if spellID and spellID > 0 then
         return spellID
     end
+end
+
+local function FindPlayerAuraBySpellID(spellID)
+    if not spellID or spellID <= 0 then return nil end
+
+    if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+        local auraData = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+        if auraData then
+            return auraData
+        end
+    end
+
+    if AuraUtil and AuraUtil.FindAuraBySpellID then
+        local name, _, applications, _, duration, expirationTime, _, _, _, foundSpellID =
+            AuraUtil.FindAuraBySpellID(spellID, "player", "HELPFUL")
+        if name then
+            return {
+                spellId = foundSpellID or spellID,
+                applications = applications,
+                duration = duration,
+                expirationTime = expirationTime,
+            }
+        end
+    end
+
+    return nil
+end
+
+local function GetTrackedAuraData(spellID)
+    local now = GetTime()
+    local auraData = FindPlayerAuraBySpellID(spellID)
+    if auraData then
+        local duration = auraData.duration or 0
+        local expirationTime = auraData.expirationTime or 0
+        trackedAuraCache[spellID] = {
+            duration = duration,
+            expirationTime = expirationTime,
+        }
+        return auraData
+    end
+
+    local cached = trackedAuraCache[spellID]
+    if cached and (cached.expirationTime or 0) > now then
+        return cached
+    end
+
+    trackedAuraCache[spellID] = nil
+    return nil
 end
 
 function BCDM:HasActiveTertiaryResource()
@@ -45,7 +93,7 @@ local function UpdateTertiaryResourceBarValues()
 
     if not trackedSpellID then return end
 
-    local auraData = C_UnitAuras.GetPlayerAuraBySpellID(trackedSpellID)
+    local auraData = GetTrackedAuraData(trackedSpellID)
     if not auraData then return end
 
     local duration = auraData.duration or 0
