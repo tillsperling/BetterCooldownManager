@@ -4,6 +4,8 @@ local runeBars = {}
 local comboPoints = {}
 local essenceTicks = {}
 local resizeTimer = nil
+local VENGEANCE_SOUL_FRAGMENTS_SPELL_ID = 203981
+local VENGEANCE_SOUL_FRAGMENTS_MAX = 6
 
 local isDestruction;
 
@@ -44,6 +46,7 @@ local function DetectSecondaryPower()
         return Enum.PowerType.Runes
     elseif class == "DEMONHUNTER" then
         if specID == 1480 then return "SOUL" end
+        if specID == 581 then return "SOULFRAGMENTS" end
     elseif class == "SHAMAN" then
         if specID == 263 then return Enum.PowerType.Maelstrom end
     end
@@ -72,6 +75,9 @@ local function GetPowerBarColor()
     if secondaryPowerBarDB.ColourByType then
         local powerType = DetectSecondaryPower()
         local powerColour = generalDB.Colours.SecondaryPower[powerType]
+        if not powerColour and powerType == "SOULFRAGMENTS" then
+            powerColour = generalDB.Colours.SecondaryPower.SOUL
+        end
         if powerColour then
             return powerColour[1], powerColour[2], powerColour[3], powerColour[4] or 1
         end
@@ -425,7 +431,13 @@ end
 local function GetAuraStacks(spellId)
     local auraData = C_UnitAuras.GetPlayerAuraBySpellID(spellId)
     if auraData then
-        return auraData.applications or 0
+        local applications = auraData.applications
+        local stackCount = auraData.stackCount
+        local charges = auraData.charges
+        if applications and applications > 0 then return applications end
+        if stackCount and stackCount > 0 then return stackCount end
+        if charges and charges > 0 then return charges end
+        return 1
     end
     return 0
 end
@@ -492,6 +504,12 @@ local function UpdatePowerValues()
         powerCurrent = GetSpellCharges(1217605)
         secondaryPowerBar.Status:SetMinMaxValues(0, (isInMeta and 40) or (hasSoulGlutton and 35 or 50))
         secondaryPowerBar.Status:SetValue(powerCurrent)
+        secondaryPowerBar.Text:SetText(tostring(powerCurrent))
+        secondaryPowerBar.Status:Show()
+    elseif powerType == "SOULFRAGMENTS" then
+        powerCurrent = GetSpellCharges(228477)
+        secondaryPowerBar.Status:SetMinMaxValues(0, VENGEANCE_SOUL_FRAGMENTS_MAX)
+        SetBarValue(secondaryPowerBar.Status, powerCurrent)
         secondaryPowerBar.Text:SetText(tostring(powerCurrent))
         secondaryPowerBar.Status:Show()
     elseif powerType == Enum.PowerType.Chi then
@@ -587,6 +605,11 @@ local function CreateTicksBasedOnPowerType()
     if secondaryPowerResource == "SOUL" then
         local hasSoulGlutton = C_SpellBook.IsSpellKnown(1247534)
         BCDM:CreateTicks(hasSoulGlutton and 7 or 10)
+        return
+    end
+
+    if secondaryPowerResource == "SOULFRAGMENTS" then
+        BCDM:CreateTicks(VENGEANCE_SOUL_FRAGMENTS_MAX)
         return
     end
 
@@ -837,6 +860,7 @@ function BCDM:UpdateSecondaryPowerBar()
         secondaryPowerBar:RegisterEvent("UPDATE_SHAPESHIFT_COOLDOWN")
         secondaryPowerBar:RegisterEvent("RUNE_POWER_UPDATE")
         secondaryPowerBar:RegisterEvent("RUNE_TYPE_UPDATE")
+        secondaryPowerBar:RegisterEvent("UNIT_AURA")
 
         secondaryPowerBar:SetScript("OnEvent", function(self, event, ...)
             if event == "RUNE_POWER_UPDATE" or event == "RUNE_TYPE_UPDATE" then
@@ -844,7 +868,7 @@ function BCDM:UpdateSecondaryPowerBar()
                 return
             end
             if event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" or event == "UNIT_HEALTH"
-                or event == "UNIT_MAXHEALTH" or event == "UNIT_ABSORB_AMOUNT_CHANGED" then
+                or event == "UNIT_MAXHEALTH" or event == "UNIT_ABSORB_AMOUNT_CHANGED" or event == "UNIT_AURA" then
                 local unit = ...
                 if unit and unit ~= "player" then return end
             end
