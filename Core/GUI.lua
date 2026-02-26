@@ -2668,6 +2668,13 @@ local function CreateCastBarTextSettings(parentContainer)
 end
 
 local function CreateCastBarSettings(parentContainer)
+    if BCDM.db.profile.CastBar.AnchorToActiveResourceBar ~= nil then
+        if BCDM.db.profile.CastBar.AnchorToActiveResourceBar then
+            BCDM.db.profile.CastBar.Layout[2] = "ACTIVE_RESOURCE"
+        end
+        BCDM.db.profile.CastBar.AnchorToActiveResourceBar = nil
+    end
+
     local ScrollFrame = AG:Create("ScrollFrame")
     ScrollFrame:SetLayout("Flow")
     ScrollFrame:SetFullWidth(true)
@@ -2733,7 +2740,11 @@ local function CreateCastBarSettings(parentContainer)
 
     local anchorParentDropdown = AG:Create("Dropdown")
     anchorParentDropdown:SetLabel(LL("Anchor Parent"))
-    anchorParentDropdown:SetList(AnchorParents["CastBar"][1], AnchorParents["CastBar"][2])
+    local castBarAnchorLabels = BCDM:CopyTable(AnchorParents["CastBar"][1])
+    local castBarAnchorOrder = BCDM:CopyTable(AnchorParents["CastBar"][2])
+    castBarAnchorLabels["ACTIVE_RESOURCE"] = LL("Automatic (Active Resource Bar)")
+    table.insert(castBarAnchorOrder, 1, "ACTIVE_RESOURCE")
+    anchorParentDropdown:SetList(castBarAnchorLabels, castBarAnchorOrder)
     anchorParentDropdown:SetValue(BCDM.db.profile.CastBar.Layout[2])
     anchorParentDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[2] = value BCDM:UpdateCastBar() end)
     anchorParentDropdown:SetRelativeWidth(0.33)
