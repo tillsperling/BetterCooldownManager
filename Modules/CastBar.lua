@@ -39,6 +39,21 @@ local function FetchCastBarColour()
     end
 end
 
+local function FetchCastBarChannelColour()
+    local CastBarDB = BCDM.db.profile.CastBar
+    local colour = CastBarDB.ChannelForegroundColour or CastBarDB.ForegroundColour
+    return colour[1], colour[2], colour[3], colour[4]
+end
+
+local function ApplyCastBarStatusColour(isChanneled)
+    if not BCDM.CastBar or not BCDM.CastBar.Status then return end
+    if isChanneled then
+        BCDM.CastBar.Status:SetStatusBarColor(FetchCastBarChannelColour())
+    else
+        BCDM.CastBar.Status:SetStatusBarColor(FetchCastBarColour())
+    end
+end
+
 local function HasSecondaryPowerForCurrentSpec()
     local class = select(2, UnitClass("player"))
     local spec = GetSpecialization()
@@ -133,6 +148,7 @@ local function UpdateCastBarValues(self, event, unit)
     }
 
     if CAST_START[event] then
+        ApplyCastBarStatusColour(false)
         local castDuration = UnitCastingDuration("player")
         if not castDuration then return end
         BCDM.CastBar.Status:SetTimerDuration(castDuration, 0)
@@ -152,6 +168,7 @@ local function UpdateCastBarValues(self, event, unit)
 		local isEmpowered = select(9, UnitChannelInfo("player"))
         local empoweredStages = UnitEmpoweredStagePercentages("player")
         if isEmpowered then
+            ApplyCastBarStatusColour(true)
             local empowerCastDuration = UnitEmpoweredChannelDuration("player")
             CreatePips(empoweredStages)
             BCDM.CastBar.Status:SetTimerDuration(empowerCastDuration, 0)
@@ -169,6 +186,7 @@ local function UpdateCastBarValues(self, event, unit)
             BCDM.CastBar:Show()
         end
     elseif CHANNEL_START[event] then
+        ApplyCastBarStatusColour(true)
         local channelDuration = UnitChannelDuration("player")
         if not channelDuration then return end
         BCDM.CastBar.Status:SetTimerDuration(channelDuration, 0)
@@ -186,6 +204,7 @@ local function UpdateCastBarValues(self, event, unit)
         end)
         BCDM.CastBar:Show()
     elseif CAST_STOP[event] then
+        ApplyCastBarStatusColour(false)
         BCDM.CastBar:Hide()
         BCDM.CastBar:SetScript("OnUpdate", nil)
         for _, pip in ipairs(BCDM.CastBar.Pips) do pip:Hide() pip:SetParent(nil) end
@@ -232,7 +251,11 @@ function BCDM:CreateCastBar()
 
     CastBar.Status = CreateFrame("StatusBar", nil, CastBar)
     CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
-    CastBar.Status:SetStatusBarColor(FetchCastBarColour())
+    if UnitChannelInfo("player") then
+        CastBar.Status:SetStatusBarColor(FetchCastBarChannelColour())
+    else
+        CastBar.Status:SetStatusBarColor(FetchCastBarColour())
+    end
     CastBar.Status:SetMinMaxValues(0, UnitPowerMax("player"))
     CastBar.Status:SetValue(UnitPower("player"))
 
@@ -321,7 +344,7 @@ function BCDM:UpdateCastBar()
     end
     BCDM.CastBar:SetBackdropColor(CastBarDB.BackgroundColour[1], CastBarDB.BackgroundColour[2], CastBarDB.BackgroundColour[3], CastBarDB.BackgroundColour[4])
 
-    BCDM.CastBar.Status:SetStatusBarColor(FetchCastBarColour())
+    ApplyCastBarStatusColour(UnitChannelInfo("player") ~= nil)
     BCDM.CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
 
     if CastBarDB.MatchWidthOfAnchor then
