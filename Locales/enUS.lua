@@ -65,6 +65,7 @@ L["Y Offset"] = "Y Offset"
 L["Font Size"] = "Font Size"
 L["Enable Cast Bar"] = "Enable Cast Bar"
 L["Enable Power Bar"] = "Enable Power Bar"
+L["Hide CDM While Mounted"] = "Hide CDM While Mounted"
 L["Reset Profile"] = "Reset Profile"
 L["Use Global Profile Settings"] = "Use Global Profile Settings"
 

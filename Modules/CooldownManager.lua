@@ -590,8 +590,17 @@ local function StyleIcons()
 end
 
 local function SetHooks()
-    hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function() if InCombatLockdown() then return end Position() end)
-    hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function() if InCombatLockdown() then return end BCDM.LEMO:LoadLayouts() Position() end)
+    hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
+        if InCombatLockdown() then return end
+        Position()
+        BCDM:ApplyMountedCDMVisibility()
+    end)
+    hooksecurefunc(EditModeManagerFrame, "ExitEditMode", function()
+        if InCombatLockdown() then return end
+        BCDM.LEMO:LoadLayouts()
+        Position()
+        BCDM:UpdateBCDM()
+    end)
     hooksecurefunc(CooldownViewerSettings, "RefreshLayout", function() if InCombatLockdown() then return end BCDM:UpdateBCDM() end)
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
         local viewer = _G[viewerName]
@@ -794,6 +803,7 @@ function BCDM:SkinCooldownManager()
             LEMO:ApplyChanges()
         end
     end)
+    BCDM:ApplyMountedCDMVisibility()
 end
 
 function BCDM:UpdateCooldownViewer(viewerType)
@@ -841,6 +851,7 @@ function BCDM:UpdateCooldownViewer(viewerType)
     BCDM:UpdatePowerBarWidth()
     BCDM:UpdateSecondaryPowerBarWidth()
     BCDM:UpdateCastBarWidth()
+    BCDM:ApplyMountedCDMVisibility()
 end
 
 function BCDM:UpdateCooldownViewers()

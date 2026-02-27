@@ -1049,6 +1049,16 @@ local function CreateGlobalSettings(parentContainer)
     disableChatPrintsCheckbox:SetRelativeWidth(0.33)
     globalSettingsContainer:AddChild(disableChatPrintsCheckbox)
 
+    local hideCDMWhileMountedCheckbox = AG:Create("CheckBox")
+    hideCDMWhileMountedCheckbox:SetLabel(LL("Hide CDM While Mounted"))
+    hideCDMWhileMountedCheckbox:SetValue(BCDM.db.global.HideCDMWhileMounted)
+    hideCDMWhileMountedCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        BCDM.db.global.HideCDMWhileMounted = value
+        BCDM:UpdateBCDM()
+    end)
+    hideCDMWhileMountedCheckbox:SetRelativeWidth(0.33)
+    globalSettingsContainer:AddChild(hideCDMWhileMountedCheckbox)
+
     local iconZoomSlider = AG:Create("Slider")
     iconZoomSlider:SetLabel(LL("Icon Zoom"))
     iconZoomSlider:SetValue(CooldownManagerDB.General.IconZoom)

@@ -7,8 +7,25 @@ function BCDM:SetupEventManager()
     BCDMEventManager:RegisterEvent("LOADING_SCREEN_DISABLED")
     BCDMEventManager:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
     BCDMEventManager:RegisterEvent("TRAIT_CONFIG_UPDATED")
+    BCDMEventManager:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
     BCDMEventManager:SetScript("OnEvent", function(_, event, ...)
-        if InCombatLockdown() then return end
+        if InCombatLockdown() then
+            if event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+                BCDM:QueueMountedVisibilityRefresh()
+            end
+            return
+        end
+        if event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+            C_Timer.After(0, function()
+                if InCombatLockdown() then return end
+                BCDM:UpdateBCDM()
+            end)
+            C_Timer.After(0.2, function()
+                if InCombatLockdown() then return end
+                BCDM:UpdateBCDM()
+            end)
+            return
+        end
         if event == "PLAYER_SPECIALIZATION_CHANGED" then
             local unit = ...
             if unit ~= "player" then return end

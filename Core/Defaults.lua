@@ -5,6 +5,7 @@ local Defaults = {
         UseGlobalProfile = false,
         GlobalProfileName = "Default",
         DisplayLoginMessage = true,
+        HideCDMWhileMounted = false,
         EditModeManager = {
             SwapOnInstanceDifficulty = false,
             RaidLayouts = {

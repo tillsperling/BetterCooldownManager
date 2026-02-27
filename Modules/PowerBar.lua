@@ -63,6 +63,12 @@ local function NudgePowerBar(powerBar, xOffset, yOffset)
 end
 
 local function UpdatePowerValues()
+    if BCDM:ShouldHideCDMWhileMounted() then
+        if BCDM.PowerBar then
+            BCDM.PowerBar:Hide()
+        end
+        return
+    end
     local PowerBar = BCDM.PowerBar
     local GeneralDB = BCDM.db.profile.General
     local _, class = UnitClass("player")
@@ -176,6 +182,8 @@ function BCDM:CreatePowerBar()
         PowerBar:SetScript("OnEvent", nil)
         PowerBar:UnregisterAllEvents()
     end
+
+    BCDM:ApplyMountedCDMVisibility()
 end
 
 function BCDM:UpdatePowerBar()
@@ -230,6 +238,7 @@ function BCDM:UpdatePowerBar()
             if PowerBarDB.Text.Enabled then PowerBar.Text:Show() else PowerBar.Text:Hide() end
             NudgePowerBar("BCDM_PowerBar", -0.1, 0)
             if PowerBarDB.Enabled and not BCDM.db.profile.SecondaryPowerBar.SwapToPowerBarPosition then PowerBar:Show() end
+            BCDM:ApplyMountedCDMVisibility()
         else
             PowerBar:Hide()
             PowerBar:SetScript("OnEvent", nil)

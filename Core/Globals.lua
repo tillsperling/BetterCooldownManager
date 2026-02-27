@@ -206,6 +206,81 @@ function BCDM:CopyTable(defaultTable)
     return newTable
 end
 
+function BCDM:ShouldHideCDMWhileMounted()
+    return BCDM.db
+        and BCDM.db.global
+        and BCDM.db.global.HideCDMWhileMounted
+        and IsMounted()
+end
+
+local mountedVisibilityEventFrame = CreateFrame("Frame")
+mountedVisibilityEventFrame:SetScript("OnEvent", function(_, event)
+    if event ~= "PLAYER_REGEN_ENABLED" then return end
+    if not BCDM._pendingMountedVisibilityRefresh then return end
+    if InCombatLockdown() then return end
+    BCDM._pendingMountedVisibilityRefresh = false
+    mountedVisibilityEventFrame:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    BCDM:UpdateBCDM()
+end)
+
+function BCDM:QueueMountedVisibilityRefresh()
+    BCDM._pendingMountedVisibilityRefresh = true
+    mountedVisibilityEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
+function BCDM:ApplyMountedCDMVisibility()
+    if InCombatLockdown() then
+        BCDM:QueueMountedVisibilityRefresh()
+        return
+    end
+
+    local shouldHide = BCDM:ShouldHideCDMWhileMounted()
+    local viewerFrames = {
+        "EssentialCooldownViewer",
+        "UtilityCooldownViewer",
+        "BuffIconCooldownViewer",
+    }
+    for _, frameName in ipairs(viewerFrames) do
+        local frame = _G[frameName]
+        if frame then
+            frame:SetShown(not shouldHide)
+        end
+    end
+
+    if not shouldHide then
+        local powerBar = _G["BCDM_PowerBar"]
+        local secondaryBar = _G["BCDM_SecondaryPowerBar"]
+        local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
+        local secondaryPowerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.SecondaryPowerBar
+        if powerBar and powerBarDB then
+            local secondaryInPrimarySlot = secondaryBar
+                and secondaryBar:IsShown()
+                and secondaryPowerBarDB
+                and secondaryPowerBarDB.Enabled
+                and secondaryPowerBarDB.SwapToPowerBarPosition
+                and BCDM.RepositionSecondaryBar
+                and BCDM:RepositionSecondaryBar()
+            if powerBarDB.Enabled and not secondaryInPrimarySlot then
+                powerBar:Show()
+            else
+                powerBar:Hide()
+            end
+        end
+        return
+    end
+
+    local barsToHide = {
+        "BCDM_PowerBar",
+        "BCDM_SecondaryPowerBar",
+    }
+    for _, frameName in ipairs(barsToHide) do
+        local frame = _G[frameName]
+        if frame then
+            frame:Hide()
+        end
+    end
+end
+
 function BCDM:UpdateBCDM()
     BCDM:ResolveLSM()
     BCDM:UpdateCooldownViewer("Essential")
@@ -222,6 +297,7 @@ function BCDM:UpdateBCDM()
     BCDM:RefreshCustomGlows()
     BCDM:RefreshAuraOverlayRemoval()
     BCDM:RefreshAssistHighlight()
+    BCDM:ApplyMountedCDMVisibility()
 end
 
 function BCDM:CreateCooldownViewerOverlays()
