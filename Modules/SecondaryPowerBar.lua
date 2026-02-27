@@ -3,11 +3,28 @@ local _, BCDM = ...
 local runeBars = {}
 local comboPoints = {}
 local essenceTicks = {}
-local resizeTimer = nil
 local VENGEANCE_SOUL_FRAGMENTS_SPELL_ID = 203981
 local VENGEANCE_SOUL_FRAGMENTS_MAX = 6
 
 local isDestruction;
+
+local function ApplyCachedAnchorWidth(frame, anchorName, fallbackWidth)
+    BCDM._AnchorWidthCache = BCDM._AnchorWidthCache or {}
+    local cachedWidth = BCDM._AnchorWidthCache[anchorName]
+    if cachedWidth and cachedWidth > 0 then
+        frame:SetWidth(cachedWidth)
+    elseif fallbackWidth then
+        frame:SetWidth(fallbackWidth)
+    end
+
+    local anchorFrame = _G[anchorName]
+    if not anchorFrame then return end
+    local anchorWidth = anchorFrame:GetWidth()
+    if anchorWidth and anchorWidth > 0 then
+        BCDM._AnchorWidthCache[anchorName] = anchorWidth
+        frame:SetWidth(anchorWidth)
+    end
+end
 
 local function SetBarValue(bar, value)
     local GeneralDB = BCDM.db.profile.General
@@ -664,29 +681,17 @@ local function UpdateBarWidth()
 
     if not secondaryPowerBar or not secondaryPowerBarDB.MatchWidthOfAnchor then return end
 
-    local anchorFrame = _G[secondaryPowerBarDB.Layout[2]]
-    if not anchorFrame then return end
+    ApplyCachedAnchorWidth(secondaryPowerBar, secondaryPowerBarDB.Layout[2], secondaryPowerBarDB.Width)
+    local powerType = DetectSecondaryPower()
 
-    if resizeTimer then
-        resizeTimer:Cancel()
+    if powerType == Enum.PowerType.Runes and #runeBars > 0 then
+        LayoutRuneBars()
+    elseif powerType == Enum.PowerType.ComboPoints and #comboPoints > 0 then
+        LayoutComboPoints()
+    elseif powerType == Enum.PowerType.Essence and #essenceTicks > 0 then
+        LayoutEssenceTicks()
+        UpdateEssenceDisplay()
     end
-
-    resizeTimer = C_Timer.After(0.5, function()
-        local anchorWidth = anchorFrame:GetWidth()
-        secondaryPowerBar:SetWidth(anchorWidth)
-        local powerType = DetectSecondaryPower()
-
-        if powerType == Enum.PowerType.Runes and #runeBars > 0 then
-            LayoutRuneBars()
-        elseif powerType == Enum.PowerType.ComboPoints and #comboPoints > 0 then
-            LayoutComboPoints()
-        elseif powerType == Enum.PowerType.Essence and #essenceTicks > 0 then
-            LayoutEssenceTicks()
-            UpdateEssenceDisplay()
-        end
-
-        resizeTimer = nil
-    end)
 end
 
 local function SetHooks()

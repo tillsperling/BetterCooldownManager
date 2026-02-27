@@ -1,5 +1,23 @@
 local _, BCDM = ...
 
+local function ApplyCachedAnchorWidth(frame, anchorName, fallbackWidth)
+    BCDM._AnchorWidthCache = BCDM._AnchorWidthCache or {}
+    local cachedWidth = BCDM._AnchorWidthCache[anchorName]
+    if cachedWidth and cachedWidth > 0 then
+        frame:SetWidth(cachedWidth)
+    elseif fallbackWidth then
+        frame:SetWidth(fallbackWidth)
+    end
+
+    local anchorFrame = _G[anchorName]
+    if not anchorFrame then return end
+    local anchorWidth = anchorFrame:GetWidth()
+    if anchorWidth and anchorWidth > 0 then
+        BCDM._AnchorWidthCache[anchorName] = anchorWidth
+        frame:SetWidth(anchorWidth)
+    end
+end
+
 local function FetchPowerBarColour(customPowerType)
     local CooldownManagerDB = BCDM.db.profile
     local GeneralDB = CooldownManagerDB.General
@@ -139,10 +157,7 @@ function BCDM:CreatePowerBar()
     PowerBar:SetFrameStrata(PowerBarDB.FrameStrata or "LOW")
 
     if PowerBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[PowerBarDB.Layout[2]]
-        if anchorFrame then
-            C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() PowerBar:SetWidth(anchorWidth) end)
-        end
+        ApplyCachedAnchorWidth(PowerBar, PowerBarDB.Layout[2], PowerBarDB.Width)
     end
 
     PowerBar.Status = CreateFrame("StatusBar", nil, PowerBar)
@@ -205,10 +220,7 @@ function BCDM:UpdatePowerBar()
             PowerBar:SetPoint(PowerBarDB.Layout[1], _G[PowerBarDB.Layout[2]], PowerBarDB.Layout[3], PowerBarDB.Layout[4], PowerBarDB.Layout[5])
             PowerBar:SetFrameStrata(PowerBarDB.FrameStrata or "LOW")
             if PowerBarDB.MatchWidthOfAnchor then
-                local anchorFrame = _G[PowerBarDB.Layout[2]]
-                if anchorFrame then
-                    C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() PowerBar:SetWidth(anchorWidth) end)
-                end
+                ApplyCachedAnchorWidth(PowerBar, PowerBarDB.Layout[2], PowerBarDB.Width)
             else
                 PowerBar:SetWidth(PowerBarDB.Width)
             end
@@ -251,9 +263,6 @@ function BCDM:UpdatePowerBarWidth()
     local PowerBarDB = BCDM.db.profile.PowerBar
     local PowerBar = BCDM.PowerBar
     if PowerBarDB.Enabled and PowerBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[PowerBarDB.Layout[2]]
-        if anchorFrame then
-            C_Timer.After(0.5, function() local anchorWidth = anchorFrame:GetWidth() PowerBar:SetWidth(anchorWidth) end)
-        end
+        ApplyCachedAnchorWidth(PowerBar, PowerBarDB.Layout[2], PowerBarDB.Width)
     end
 end

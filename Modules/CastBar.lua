@@ -1,5 +1,23 @@
 local _, BCDM = ...
 
+local function ApplyCachedAnchorWidth(frame, anchorName, fallbackWidth)
+    BCDM._AnchorWidthCache = BCDM._AnchorWidthCache or {}
+    local cachedWidth = BCDM._AnchorWidthCache[anchorName]
+    if cachedWidth and cachedWidth > 0 then
+        frame:SetWidth(cachedWidth)
+    elseif fallbackWidth then
+        frame:SetWidth(fallbackWidth)
+    end
+
+    local anchorFrame = _G[anchorName]
+    if not anchorFrame then return end
+    local anchorWidth = anchorFrame:GetWidth()
+    if anchorWidth and anchorWidth > 0 then
+        BCDM._AnchorWidthCache[anchorName] = anchorWidth
+        frame:SetWidth(anchorWidth)
+    end
+end
+
 local function SetBarValue(bar, value)
     local GeneralDB = BCDM.db.profile.General
     local smoothBars = GeneralDB.Animation and GeneralDB.Animation.SmoothBars
@@ -204,10 +222,7 @@ function BCDM:CreateCastBar()
     CastBar:SetFrameStrata(CastBarDB.FrameStrata or "LOW")
 
     if CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[anchorParentName]
-        if anchorFrame then
-            C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
-        end
+        ApplyCachedAnchorWidth(CastBar, anchorParentName, CastBarDB.Width)
     end
 
     CastBar.Icon = CastBar:CreateTexture(nil, "OVERLAY")
@@ -310,10 +325,7 @@ function BCDM:UpdateCastBar()
     BCDM.CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
 
     if CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[anchorParentName]
-        if anchorFrame then
-            C_Timer.After(0.1, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
-        end
+        ApplyCachedAnchorWidth(CastBar, anchorParentName, CastBarDB.Width)
     end
 
     CastBar.Icon:SetSize(CastBarDB.Height, CastBarDB.Height)
@@ -375,7 +387,10 @@ function BCDM:UpdateCastBar()
         CastBar:SetScript("OnEvent", UpdateCastBarValues)
 
         if CastBarDB.Icon.Enabled then CastBar.Icon:Show() else CastBar.Icon:Hide() end
-        CastBar:Hide()
+        local isCasting = UnitCastingInfo("player") or UnitChannelInfo("player")
+        if not isCasting then
+            CastBar:Hide()
+        end
         PlayerCastingBarFrame:UnregisterAllEvents()
     else
         CastBar:Hide()
@@ -421,9 +436,6 @@ function BCDM:UpdateCastBarWidth()
     local CastBarDB = BCDM.db.profile.CastBar
     local CastBar = BCDM.CastBar
     if CastBarDB.Enabled and CastBarDB.MatchWidthOfAnchor then
-        local anchorFrame = _G[ResolveCastBarAnchorParentName()]
-        if anchorFrame then
-            C_Timer.After(0.5, function() local anchorWidth = anchorFrame:GetWidth() CastBar:SetWidth(anchorWidth) end)
-        end
+        ApplyCachedAnchorWidth(CastBar, ResolveCastBarAnchorParentName(), CastBarDB.Width)
     end
 end
