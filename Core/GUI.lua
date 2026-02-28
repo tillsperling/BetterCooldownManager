@@ -383,6 +383,44 @@ local function ParseClassSpecDropdownValue(value)
     return classToken, specToken
 end
 
+local function ResolveCurrentClassSpecTokens()
+    local classToken = select(2, UnitClass("player"))
+    if not classToken then return end
+    local specIndex = GetSpecialization()
+    if not specIndex then return classToken end
+    local specID, specName = GetSpecializationInfo(specIndex)
+    local specToken = BCDM:NormalizeSpecToken(specName, specID, specIndex)
+    return classToken, specToken
+end
+
+local function ParseThresholdValues(input)
+    if not input or input == "" then return {} end
+    local values = {}
+    local seen = {}
+    for token in tostring(input):gmatch("[^,%s]+") do
+        local numberValue = tonumber(token)
+        if numberValue and numberValue > 0 then
+            local rounded = math.floor(numberValue + 0.5)
+            if rounded > 0 and not seen[rounded] then
+                seen[rounded] = true
+                values[#values + 1] = rounded
+            end
+        end
+    end
+    table.sort(values)
+    return values
+end
+
+local function FormatThresholdValues(values)
+    if type(values) ~= "table" or #values == 0 then return "" end
+    local sorted = {}
+    for i, value in ipairs(values) do
+        sorted[i] = tostring(value)
+    end
+    table.sort(sorted, function(a, b) return tonumber(a) < tonumber(b) end)
+    return table.concat(sorted, ", ")
+end
+
 local function PopulateClassSpecDropdown(dropdown, spellDB)
     if not dropdown then return end
     local classes, valueMap = BuildClassSpecDropdownMenuData(spellDB)
@@ -2108,6 +2146,58 @@ local function CreatePowerBarSettings(parentContainer)
     frequentUpdatesCheckbox:SetRelativeWidth(0.25)
     toggleContainer:AddChild(frequentUpdatesCheckbox)
 
+    local thresholdTicksCheckbox = AG:Create("CheckBox")
+    thresholdTicksCheckbox:SetLabel(LL("Enable Threshold Ticks"))
+    thresholdTicksCheckbox:SetValue((BCDM.db.profile.PowerBar.ThresholdTicks and BCDM.db.profile.PowerBar.ThresholdTicks.Enabled) or false)
+    thresholdTicksCheckbox:SetCallback("OnValueChanged", function(self, _, value)
+        BCDM.db.profile.PowerBar.ThresholdTicks = BCDM.db.profile.PowerBar.ThresholdTicks or {}
+        BCDM.db.profile.PowerBar.ThresholdTicks.Enabled = value
+        BCDM:UpdatePowerBar()
+        RefreshPowerBarGUISettings()
+    end)
+    thresholdTicksCheckbox:SetRelativeWidth(0.5)
+    toggleContainer:AddChild(thresholdTicksCheckbox)
+
+    local classToken, specToken = ResolveCurrentClassSpecTokens()
+    local thresholdsEditBox = AG:Create("EditBox")
+    thresholdsEditBox:SetLabel(LL("Thresholds (Current Spec)"))
+    thresholdsEditBox:SetRelativeWidth(0.5)
+    thresholdsEditBox:SetCallback("OnEnterPressed", function(self)
+        local playerClass, playerSpec = ResolveCurrentClassSpecTokens()
+        if not playerClass or not playerSpec then return end
+
+        local values = ParseThresholdValues(self:GetText())
+        BCDM.db.profile.PowerBar.ThresholdTicks = BCDM.db.profile.PowerBar.ThresholdTicks or {}
+        BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec = BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec or {}
+        local perSpec = BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec
+        perSpec[playerClass] = perSpec[playerClass] or {}
+        if #values > 0 then
+            perSpec[playerClass][playerSpec] = values
+        else
+            perSpec[playerClass][playerSpec] = nil
+            if not next(perSpec[playerClass]) then
+                perSpec[playerClass] = nil
+            end
+        end
+        self:SetText(FormatThresholdValues(values))
+        BCDM:UpdatePowerBar()
+    end)
+    thresholdsEditBox:SetCallback("OnEnter", function(self)
+        GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
+        GameTooltip:AddLine(LL("Enter one or more values separated by commas (example: 35, 80)."))
+        if classToken and specToken then
+            GameTooltip:AddLine(string.format("%s: %s / %s", LL("Editing"), classToken, specToken), 1, 1, 1)
+        end
+        GameTooltip:Show()
+    end)
+    thresholdsEditBox:SetCallback("OnLeave", function() GameTooltip:Hide() end)
+    do
+        local thresholdDB = BCDM.db.profile.PowerBar.ThresholdTicks
+        local existing = thresholdDB and thresholdDB.PerSpec and classToken and specToken and thresholdDB.PerSpec[classToken] and thresholdDB.PerSpec[classToken][specToken]
+        thresholdsEditBox:SetText(FormatThresholdValues(existing))
+    end
+    toggleContainer:AddChild(thresholdsEditBox)
+
     local foregroundColourPicker = AG:Create("ColorPicker")
     foregroundColourPicker:SetLabel(LL("Foreground Colour"))
     foregroundColourPicker:SetColor(BCDM.db.profile.PowerBar.ForegroundColour[1], BCDM.db.profile.PowerBar.ForegroundColour[2], BCDM.db.profile.PowerBar.ForegroundColour[3], BCDM.db.profile.PowerBar.ForegroundColour[4])
@@ -2239,6 +2329,8 @@ local function CreatePowerBarSettings(parentContainer)
             else
                 foregroundColourPicker:SetDisabled(false)
             end
+            local thresholdEnabled = BCDM.db.profile.PowerBar.ThresholdTicks and BCDM.db.profile.PowerBar.ThresholdTicks.Enabled
+            thresholdsEditBox:SetDisabled(not thresholdEnabled)
             if BCDM.db.profile.PowerBar.MatchWidthOfAnchor then
                 widthSlider:SetDisabled(true)
             else

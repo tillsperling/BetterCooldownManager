@@ -37,6 +37,98 @@ local function FetchPowerBarColour(customPowerType)
     end
 end
 
+local function ResolveCurrentClassSpecTokens()
+    local classToken = select(2, UnitClass("player"))
+    if not classToken then return end
+    local specIndex = GetSpecialization()
+    if not specIndex then return classToken end
+    local specID, specName = GetSpecializationInfo(specIndex)
+    local specToken = BCDM:NormalizeSpecToken(specName, specID, specIndex)
+    return classToken, specToken
+end
+
+local function ClearPowerBarThresholdTicks(powerBar)
+    if not powerBar or not powerBar.ThresholdTicks then return end
+    for _, tick in ipairs(powerBar.ThresholdTicks) do
+        tick:Hide()
+    end
+end
+
+local function GetPowerBarThresholdsForCurrentSpec()
+    local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
+    local thresholdDB = powerBarDB and powerBarDB.ThresholdTicks
+    if not thresholdDB or not thresholdDB.PerSpec then return end
+
+    local classToken, specToken = ResolveCurrentClassSpecTokens()
+    if not classToken or not specToken then return end
+
+    local classThresholds = thresholdDB.PerSpec[classToken]
+    if not classThresholds then return end
+
+    return classThresholds[specToken]
+end
+
+local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
+    if not powerBar or not powerBar.Status then return end
+
+    local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
+    local thresholdDB = powerBarDB and powerBarDB.ThresholdTicks
+    if not thresholdDB or not thresholdDB.Enabled then
+        ClearPowerBarThresholdTicks(powerBar)
+        return
+    end
+
+    local thresholds = GetPowerBarThresholdsForCurrentSpec()
+    if not thresholds or type(thresholds) ~= "table" then
+        ClearPowerBarThresholdTicks(powerBar)
+        return
+    end
+
+    local barWidth = powerBar.Status:GetWidth()
+    if not powerMax or powerMax <= 0 or not barWidth or barWidth <= 0 then
+        ClearPowerBarThresholdTicks(powerBar)
+        return
+    end
+
+    local validThresholds = {}
+    local seen = {}
+    for _, threshold in ipairs(thresholds) do
+        local value = tonumber(threshold)
+        if value and value > 0 and value < powerMax and not seen[value] then
+            seen[value] = true
+            validThresholds[#validThresholds + 1] = value
+        end
+    end
+
+    if #validThresholds == 0 then
+        ClearPowerBarThresholdTicks(powerBar)
+        return
+    end
+
+    table.sort(validThresholds)
+
+    powerBar.ThresholdTicks = powerBar.ThresholdTicks or {}
+    for i, threshold in ipairs(validThresholds) do
+        local tick = powerBar.ThresholdTicks[i]
+        if not tick then
+            tick = powerBar.Status:CreateTexture(nil, "OVERLAY")
+            tick:SetColorTexture(1, 1, 1, 1)
+            powerBar.ThresholdTicks[i] = tick
+        end
+
+        local tickPosition = (threshold / powerMax) * barWidth
+        tick:ClearAllPoints()
+        tick:SetSize(1, powerBar:GetHeight() - 2)
+        tick:SetPoint("LEFT", powerBar.Status, "LEFT", tickPosition - 0.1, 0)
+        tick:SetDrawLayer("OVERLAY", 7)
+        tick:Show()
+    end
+
+    for i = #validThresholds + 1, #powerBar.ThresholdTicks do
+        powerBar.ThresholdTicks[i]:Hide()
+    end
+end
+
 local function DetectSecondaryPower()
     local class = select(2, UnitClass("player"))
     local spec  = GetSpecialization()
@@ -138,6 +230,7 @@ local function UpdatePowerValues()
         else
             PowerBar.Status:SetValue(powerCurrent)
         end
+        UpdatePowerBarThresholdTicks(PowerBar, powerMax)
     end
 end
 
@@ -189,6 +282,11 @@ function BCDM:CreatePowerBar()
     PowerBar.Status:SetStatusBarColor(FetchPowerBarColour())
     PowerBar.Status:SetMinMaxValues(0, UnitPowerMax("player"))
     PowerBar.Status:SetValue(UnitPower("player"))
+    PowerBar.ThresholdTicks = {}
+    PowerBar.Status:SetScript("OnSizeChanged", function()
+        local powerType = UnitPowerType("player")
+        UpdatePowerBarThresholdTicks(PowerBar, UnitPowerMax("player", powerType))
+    end)
 
     PowerBar.Text = PowerBar.Status:CreateFontString(nil, "OVERLAY")
     PowerBar.Text:SetFont(BCDM.Media.Font, PowerBarDB.Text.FontSize, GeneralDB.Fonts.FontFlag)
@@ -216,6 +314,8 @@ function BCDM:CreatePowerBar()
         NudgePowerBar("BCDM_PowerBar", -0.1, 0)
     else
         PowerBar:Hide()
+        ClearPowerBarThresholdTicks(PowerBar)
+        PowerBar.Status:SetScript("OnSizeChanged", nil)
         PowerBar:SetScript("OnEvent", nil)
         PowerBar:UnregisterAllEvents()
     end
@@ -250,6 +350,10 @@ function BCDM:UpdatePowerBar()
             PowerBar:SetHeight(hasSecondary and PowerBarDB.Height or PowerBarDB.HeightWithoutSecondary)
             PowerBar:SetBackdropColor(PowerBarDB.BackgroundColour[1], PowerBarDB.BackgroundColour[2], PowerBarDB.BackgroundColour[3], PowerBarDB.BackgroundColour[4])
             PowerBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
+            PowerBar.Status:SetScript("OnSizeChanged", function()
+                local powerType = UnitPowerType("player")
+                UpdatePowerBarThresholdTicks(PowerBar, UnitPowerMax("player", powerType))
+            end)
             PowerBar.Text:SetFont(BCDM.Media.Font, PowerBarDB.Text.FontSize, BCDM.db.profile.General.Fonts.FontFlag)
             PowerBar.Text:SetTextColor(PowerBarDB.Text.Colour[1], PowerBarDB.Text.Colour[2], PowerBarDB.Text.Colour[3], 1)
             PowerBar.Text:SetPoint(PowerBarDB.Text.Layout[1], PowerBar, PowerBarDB.Text.Layout[2], PowerBarDB.Text.Layout[3], PowerBarDB.Text.Layout[4])
@@ -275,7 +379,9 @@ function BCDM:UpdatePowerBar()
             BCDM:ApplyMountedCDMVisibility()
         else
             PowerBar:Hide()
+            ClearPowerBarThresholdTicks(PowerBar)
             PowerBar:SetScript("OnEvent", nil)
+            PowerBar.Status:SetScript("OnSizeChanged", nil)
             PowerBar:UnregisterAllEvents()
         end
     end

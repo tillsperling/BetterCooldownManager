@@ -450,6 +450,14 @@ local Defaults = {
             BackgroundColour = {34/255, 34/255, 34/255, 1},
             ForegroundColour = {34/255, 34/255, 34/255, 1},
             Layout = {"BOTTOM", "EssentialCooldownViewer", "TOP", 0, 1},
+            ThresholdTicks = {
+                Enabled = false,
+                PerSpec = {
+                    DEMONHUNTER = {
+                        VENGEANCE = {35},
+                    },
+                },
+            },
             Text = {
                 Enabled = true,
                 FontSize = 18,
