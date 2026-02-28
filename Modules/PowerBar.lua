@@ -81,13 +81,35 @@ local function NudgePowerBar(powerBar, xOffset, yOffset)
 end
 
 local function UpdatePowerValues()
+    local PowerBar = BCDM.PowerBar
+    local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
+    local secondaryBar = BCDM.SecondaryPowerBar
+    local secondaryPowerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.SecondaryPowerBar
+
     if BCDM:ShouldHideCDMWhileMounted() then
-        if BCDM.PowerBar then
-            BCDM.PowerBar:Hide()
+        if PowerBar then
+            PowerBar:Hide()
         end
         return
     end
-    local PowerBar = BCDM.PowerBar
+
+    if not PowerBar or not powerBarDB or not powerBarDB.Enabled then return end
+
+    local secondaryInPrimarySlot = secondaryBar
+        and secondaryBar:IsShown()
+        and secondaryPowerBarDB
+        and secondaryPowerBarDB.Enabled
+        and secondaryPowerBarDB.SwapToPowerBarPosition
+        and BCDM.RepositionSecondaryBar
+        and BCDM:RepositionSecondaryBar()
+
+    if secondaryInPrimarySlot then
+        PowerBar:Hide()
+        return
+    end
+
+    PowerBar:Show()
+
     local GeneralDB = BCDM.db.profile.General
     local _, class = UnitClass("player")
     local powerType = UnitPowerType("player")
