@@ -15,6 +15,7 @@ L["Trinkets"] = "Trinkets"
 L["Items & Spells"] = "Items / Spells"
 L["Power Bar"] = "Power Bar"
 L["Secondary Power Bar"] = "Secondary Power Bar"
+L["Tertiary Power Bar"] = "Tertiary Power Bar"
 L["Cast Bar"] = "Cast Bar"
 L["Profiles"] = "Profiles"
 
