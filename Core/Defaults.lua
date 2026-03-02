@@ -504,6 +504,7 @@ local Defaults = {
             BackgroundColour = {34/255, 34/255, 34/255, 1},
             ForegroundColour = {34/255, 34/255, 34/255, 1},
             Layout = {"TOP", "BCDM_PowerBar", "BOTTOM", 0, -1},
+            PerSpec = {},
         },
         CastBar = {
             Enabled = true,

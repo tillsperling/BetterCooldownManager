@@ -3001,7 +3001,7 @@ local function CreateCastBarSettings(parentContainer)
 end
 
 local function CreateTertiaryResourceBarSettings(parentContainer)
-    local db = BCDM.db.profile.TertiaryResourceBar
+    local db = BCDM:GetActiveTertiaryResourceBarDB(true) or BCDM.db.profile.TertiaryResourceBar
     local RefreshTertiaryResourceBarGUISettings
     local RefreshTertiarySourceSettings
     local IsTertiarySpecEligible = function()
