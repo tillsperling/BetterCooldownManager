@@ -8,6 +8,7 @@ function BCDM:SetupEventManager()
     BCDMEventManager:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
     BCDMEventManager:RegisterEvent("TRAIT_CONFIG_UPDATED")
     BCDMEventManager:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+    BCDMEventManager:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
     BCDMEventManager:RegisterEvent("PLAYER_REGEN_DISABLED")
     BCDMEventManager:RegisterEvent("PLAYER_REGEN_ENABLED")
     BCDMEventManager:SetScript("OnEvent", function(_, event, ...)
@@ -25,7 +26,7 @@ function BCDM:SetupEventManager()
             return
         end
         if InCombatLockdown() then
-            if event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
+            if event == "PLAYER_MOUNT_DISPLAY_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
                 BCDM:QueueMountedVisibilityRefresh()
             end
             return
@@ -38,6 +39,13 @@ function BCDM:SetupEventManager()
             C_Timer.After(0.2, function()
                 if InCombatLockdown() then return end
                 BCDM:UpdateBCDM()
+            end)
+            return
+        end
+        if event == "UPDATE_SHAPESHIFT_FORM" then
+            C_Timer.After(0, function()
+                if InCombatLockdown() then return end
+                BCDM:ApplyMountedCDMVisibility()
             end)
             return
         end

@@ -207,13 +207,27 @@ function BCDM:CopyTable(defaultTable)
 end
 
 function BCDM:ShouldHideCDMWhileMounted()
+    local isDruidFlightForm = false
+    if select(2, UnitClass("player")) == "DRUID" then
+        local activeFormIndex = GetShapeshiftForm and GetShapeshiftForm() or 0
+        if activeFormIndex and activeFormIndex > 0 then
+            local _, _, isActive, _, spellID = GetShapeshiftFormInfo(activeFormIndex)
+            local formID = GetShapeshiftFormID and GetShapeshiftFormID() or 0
+            isDruidFlightForm = (isActive and (spellID == 33943 or spellID == 40120)) or formID == 27 or formID == 29
+            if not isDruidFlightForm and IsFlying() then
+                isDruidFlightForm = true
+            end
+        end
+    end
+
     return BCDM.db
         and BCDM.db.global
         and BCDM.db.global.HideCDMWhileMounted
-        and IsMounted()
+        and (IsMounted() or isDruidFlightForm)
 end
 
 local mountedVisibilityEventFrame = CreateFrame("Frame")
+local mountedVisibilityFadeDuration = 0.15
 mountedVisibilityEventFrame:SetScript("OnEvent", function(_, event)
     if event ~= "PLAYER_REGEN_ENABLED" then return end
     if not BCDM._pendingMountedVisibilityRefresh then return end
@@ -226,6 +240,58 @@ end)
 function BCDM:QueueMountedVisibilityRefresh()
     BCDM._pendingMountedVisibilityRefresh = true
     mountedVisibilityEventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
+function BCDM:SetFrameShownWithFade(frame, shouldShow, duration)
+    if not frame then return end
+    local fadeDuration = duration or mountedVisibilityFadeDuration
+    if fadeDuration <= 0 then
+        frame:SetShown(shouldShow)
+        frame:SetAlpha(1)
+        return
+    end
+
+    if frame._bcdmFadeAnimGroup and frame._bcdmFadeAnimGroup:IsPlaying() then
+        frame._bcdmFadeAnimGroup:Stop()
+    end
+
+    if not frame._bcdmFadeAnimGroup then
+        local animGroup = frame:CreateAnimationGroup()
+        local alphaAnim = animGroup:CreateAnimation("Alpha")
+        alphaAnim:SetSmoothing("OUT")
+        animGroup._alphaAnim = alphaAnim
+        animGroup:SetScript("OnFinished", function(group)
+            local targetFrame = group:GetParent()
+            if not targetFrame then return end
+            if targetFrame._bcdmFadeShouldShow then
+                targetFrame:SetAlpha(1)
+                targetFrame:Show()
+            else
+                targetFrame:Hide()
+                targetFrame:SetAlpha(1)
+            end
+        end)
+        frame._bcdmFadeAnimGroup = animGroup
+    end
+
+    frame._bcdmFadeShouldShow = shouldShow
+    local alphaAnim = frame._bcdmFadeAnimGroup._alphaAnim
+    alphaAnim:SetDuration(fadeDuration)
+    alphaAnim:SetFromAlpha(frame:GetAlpha())
+    alphaAnim:SetToAlpha(shouldShow and 1 or 0)
+
+    if shouldShow then
+        if not frame:IsShown() then
+            frame:SetAlpha(0)
+            alphaAnim:SetFromAlpha(0)
+        end
+        frame:Show()
+    elseif not frame:IsShown() then
+        frame:SetAlpha(1)
+        return
+    end
+
+    frame._bcdmFadeAnimGroup:Play()
 end
 
 function BCDM:ApplyMountedCDMVisibility()
@@ -243,7 +309,7 @@ function BCDM:ApplyMountedCDMVisibility()
     for _, frameName in ipairs(viewerFrames) do
         local frame = _G[frameName]
         if frame then
-            frame:SetShown(not shouldHide)
+            BCDM:SetFrameShownWithFade(frame, not shouldHide)
         end
     end
 
@@ -263,21 +329,22 @@ function BCDM:ApplyMountedCDMVisibility()
                 and BCDM.RepositionSecondaryBar
                 and BCDM:RepositionSecondaryBar()
             if powerBarDB.Enabled and not secondaryInPrimarySlot then
-                powerBar:Show()
+                BCDM:SetFrameShownWithFade(powerBar, true)
             else
-                powerBar:Hide()
+                BCDM:SetFrameShownWithFade(powerBar, false)
             end
         end
         if tertiaryBar then
             if tertiaryResourceBarDB and tertiaryResourceBarDB.Enabled then
                 BCDM:UpdateTertiaryResourceBar()
+                BCDM:SetFrameShownWithFade(tertiaryBar, true)
                 C_Timer.After(0.2, function()
                     if InCombatLockdown() then return end
                     if BCDM:ShouldHideCDMWhileMounted() then return end
                     BCDM:UpdateTertiaryResourceBar()
                 end)
             else
-                tertiaryBar:Hide()
+                BCDM:SetFrameShownWithFade(tertiaryBar, false)
             end
         end
         return
@@ -291,7 +358,7 @@ function BCDM:ApplyMountedCDMVisibility()
     for _, frameName in ipairs(barsToHide) do
         local frame = _G[frameName]
         if frame then
-            frame:Hide()
+            BCDM:SetFrameShownWithFade(frame, false)
         end
     end
 end
