@@ -83,6 +83,8 @@ local function HasSecondaryPowerForCurrentSpec()
         return specID == 263 or (specID == 262 and showMana)
     elseif class == "PRIEST" then
         return specID == 258 and showMana
+    elseif class == "WARRIOR" then
+        return specID == 72
     end
 
     return false

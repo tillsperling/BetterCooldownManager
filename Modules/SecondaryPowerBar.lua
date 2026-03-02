@@ -5,8 +5,41 @@ local comboPoints = {}
 local essenceTicks = {}
 local VENGEANCE_SOUL_FRAGMENTS_SPELL_ID = 203981
 local VENGEANCE_SOUL_FRAGMENTS_MAX = 6
+local FURY_WHIRLWIND_STACKS_MAX = 4
 
 local isDestruction;
+local UpdatePowerValues
+local HasFuryWWRequiredTalent
+
+local furyWWStacks = 0
+local furyWWExpiresAt = nil
+local furyWWPlayerInCombat = false
+local furyWWPendingGenToken = 0
+local furyWWSeenCastGUID = {}
+
+local FURY_WW_DURATION = 20
+local FURY_WW_REQUIRED_TALENT_ID = 12950
+local FURY_WW_CRASHING_THUNDER_TALENT_ID = 436707
+local FURY_WW_CRACKLING_THUNDER_TALENT_ID = 203201
+local FURY_WW_UNHINGED_TALENT_ID = 386628
+local FURY_WW_BLADESTORM_ID = 446035
+
+local FURY_WW_GENERATOR_IDS = {
+    [190411] = true, -- Whirlwind
+    [6343]   = true, -- Thunder Clap
+    [435222] = true, -- Thunder Blast
+}
+
+local FURY_WW_SPENDER_IDS = {
+    [23881]  = true, -- Bloodthirst
+    [85288]  = true, -- Raging Blow
+    [280735] = true, -- Execute
+    [202168] = true, -- Impending Victory
+    [184367] = true, -- Rampage
+    [335096] = true, -- Bloodbath
+    [335097] = true, -- Crushing Blow
+    [5308]   = true, -- Execute (base)
+}
 
 local function ApplyCachedAnchorWidth(frame, anchorName, fallbackWidth)
     BCDM._AnchorWidthCache = BCDM._AnchorWidthCache or {}
@@ -66,6 +99,8 @@ local function DetectSecondaryPower()
         if specID == 581 then return "SOULFRAGMENTS" end
     elseif class == "SHAMAN" then
         if specID == 263 then return Enum.PowerType.Maelstrom end
+    elseif class == "WARRIOR" then
+        if specID == 72 and HasFuryWWRequiredTalent() then return "WHIRLWIND_STACKS" end
     end
 
     return nil
@@ -468,7 +503,156 @@ local function GetSpellCharges(spellId)
     return C_Spell.GetSpellCastCount(spellId)
 end
 
-local function UpdatePowerValues()
+local function IsFuryWarriorSpec()
+    local class = select(2, UnitClass("player"))
+    local specIndex = C_SpecializationInfo.GetSpecialization()
+    local specID = C_SpecializationInfo.GetSpecializationInfo(specIndex)
+    return class == "WARRIOR" and specID == 72
+end
+
+local function IsSpellKnown(spellId)
+    return C_SpellBook and C_SpellBook.IsSpellKnown(spellId) or false
+end
+
+HasFuryWWRequiredTalent = function()
+    return IsSpellKnown(FURY_WW_REQUIRED_TALENT_ID)
+end
+
+local function HasFuryWWCrashingThunderTalent()
+    return IsSpellKnown(FURY_WW_CRASHING_THUNDER_TALENT_ID)
+end
+
+local function HasFuryWWCracklingThunderTalent()
+    return IsSpellKnown(FURY_WW_CRACKLING_THUNDER_TALENT_ID)
+end
+
+local function HasFuryWWUnhingedTalent()
+    return IsSpellKnown(FURY_WW_UNHINGED_TALENT_ID)
+end
+
+local function ResetFuryWWTracker()
+    furyWWStacks = 0
+    furyWWExpiresAt = nil
+    furyWWSeenCastGUID = {}
+end
+
+local function HasNearbyHostileAoE(spellID)
+    if not furyWWPlayerInCombat and not UnitAffectingCombat("player") then
+        return false
+    end
+
+    local inRangeCheckBySpellId = {
+        [190411] = function(unit)
+            return CheckInteractDistance(unit, 2)
+        end,
+        [6343] = function(unit)
+            return CheckInteractDistance(unit, 2) or (HasFuryWWCracklingThunderTalent() and CheckInteractDistance(unit, 5))
+        end,
+        [435222] = function(unit)
+            return CheckInteractDistance(unit, 2) or (HasFuryWWCracklingThunderTalent() and CheckInteractDistance(unit, 5))
+        end,
+    }
+
+    if not CheckInteractDistance then
+        return false
+    end
+
+    for i = 1, 40 do
+        local unit = "nameplate" .. i
+        if UnitExists(unit)
+            and UnitCanAttack("player", unit)
+            and not UnitIsDead(unit)
+            and (inRangeCheckBySpellId[spellID] and inRangeCheckBySpellId[spellID](unit) or false) then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function HandleFuryWWTrackerEvent(event, ...)
+    if not IsFuryWarriorSpec() then return end
+
+    if event == "PLAYER_TALENT_UPDATE" or event == "ACTIVE_PLAYER_SPECIALIZATION_CHANGED" or event == "TRAIT_CONFIG_UPDATED" then
+        if not HasFuryWWRequiredTalent() then
+            ResetFuryWWTracker()
+        end
+        return
+    end
+
+    if event == "PLAYER_REGEN_DISABLED" then
+        furyWWPlayerInCombat = true
+        return
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        furyWWPlayerInCombat = false
+        furyWWPendingGenToken = furyWWPendingGenToken + 1
+        return
+    end
+
+    if event == "PLAYER_DEAD" or event == "PLAYER_ALIVE" then
+        ResetFuryWWTracker()
+        return
+    end
+
+    if not HasFuryWWRequiredTalent() then return end
+    if event ~= "UNIT_SPELLCAST_SUCCEEDED" then return end
+
+    local unit, castGUID, spellID = ...
+    if unit ~= "player" then return end
+
+    if castGUID and furyWWSeenCastGUID[castGUID] then return end
+    if castGUID then furyWWSeenCastGUID[castGUID] = true end
+
+    if FURY_WW_GENERATOR_IDS[spellID] then
+        if (spellID == 6343 or spellID == 435222) and not HasFuryWWCrashingThunderTalent() then
+            return
+        end
+
+        local combatAtCast = InCombatLockdown() or furyWWPlayerInCombat
+        local hostileTargetAtCast = UnitExists("target") and UnitCanAttack("player", "target") and not UnitIsDead("target")
+
+        furyWWPendingGenToken = furyWWPendingGenToken + 1
+        local myToken = furyWWPendingGenToken
+
+        C_Timer.After(0.15, function()
+            if myToken ~= furyWWPendingGenToken then return end
+            if not (combatAtCast or hostileTargetAtCast) and not HasNearbyHostileAoE(spellID) then return end
+
+            furyWWStacks = FURY_WHIRLWIND_STACKS_MAX
+            furyWWExpiresAt = GetTime() + FURY_WW_DURATION
+            if UpdatePowerValues then
+                UpdatePowerValues()
+            end
+        end)
+        return
+    end
+
+    if FURY_WW_SPENDER_IDS[spellID] then
+        if HasFuryWWUnhingedTalent() and C_Spell and not select(1, C_Spell.IsSpellUsable(FURY_WW_BLADESTORM_ID)) and (spellID == 23881 or spellID == 335096) then
+            return
+        end
+        if furyWWStacks <= 0 then return end
+
+        furyWWStacks = math.max(0, furyWWStacks - 1)
+        if furyWWStacks == 0 then furyWWExpiresAt = nil end
+        return
+    end
+end
+
+local function GetFuryWWStacks()
+    if furyWWExpiresAt and GetTime() >= furyWWExpiresAt then
+        furyWWStacks = 0
+        furyWWExpiresAt = nil
+    end
+
+    if not HasFuryWWRequiredTalent() then
+        return nil, 0
+    end
+
+    return FURY_WHIRLWIND_STACKS_MAX, furyWWStacks
+end
+
+UpdatePowerValues = function()
     if BCDM:ShouldHideCDMWhileMounted() then
         if BCDM.SecondaryPowerBar then
             BCDM.SecondaryPowerBar:Hide()
@@ -519,6 +703,13 @@ local function UpdatePowerValues()
         powerCurrent = GetAuraStacks(344179)
         secondaryPowerBar.Status:SetMinMaxValues(0, 10)
         secondaryPowerBar.Status:SetValue(powerCurrent)
+        secondaryPowerBar.Text:SetText(tostring(powerCurrent))
+        secondaryPowerBar.Status:Show()
+    elseif powerType == "WHIRLWIND_STACKS" then
+        local powerMax
+        powerMax, powerCurrent = GetFuryWWStacks()
+        secondaryPowerBar.Status:SetMinMaxValues(0, powerMax or FURY_WHIRLWIND_STACKS_MAX)
+        SetBarValue(secondaryPowerBar.Status, powerCurrent)
         secondaryPowerBar.Text:SetText(tostring(powerCurrent))
         secondaryPowerBar.Status:Show()
     elseif powerType == "SOUL" then
@@ -668,6 +859,10 @@ local function CreateTicksBasedOnPowerType()
         BCDM:CreateTicks(10)
         return
     end
+    if secondaryPowerResource == "WHIRLWIND_STACKS" then
+        BCDM:CreateTicks(FURY_WHIRLWIND_STACKS_MAX)
+        return
+    end
 
     local maxPower = UnitPowerMax("player", secondaryPowerResource) or 0
     if maxPower > 0 then
@@ -786,8 +981,17 @@ function BCDM:CreateSecondaryPowerBar()
         secondaryPowerBar:RegisterEvent("RUNE_POWER_UPDATE")
         secondaryPowerBar:RegisterEvent("RUNE_TYPE_UPDATE")
         secondaryPowerBar:RegisterEvent("UNIT_AURA")
+        secondaryPowerBar:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+        secondaryPowerBar:RegisterEvent("PLAYER_REGEN_DISABLED")
+        secondaryPowerBar:RegisterEvent("PLAYER_REGEN_ENABLED")
+        secondaryPowerBar:RegisterEvent("PLAYER_DEAD")
+        secondaryPowerBar:RegisterEvent("PLAYER_ALIVE")
+        secondaryPowerBar:RegisterEvent("PLAYER_TALENT_UPDATE")
+        secondaryPowerBar:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
+        secondaryPowerBar:RegisterEvent("TRAIT_CONFIG_UPDATED")
 
         secondaryPowerBar:SetScript("OnEvent", function(self, event, ...)
+            HandleFuryWWTrackerEvent(event, ...)
             if event == "RUNE_POWER_UPDATE" or event == "RUNE_TYPE_UPDATE" then
                 if DetectSecondaryPower() == Enum.PowerType.Runes then
                     UpdateRuneDisplay()
@@ -796,7 +1000,7 @@ function BCDM:CreateSecondaryPowerBar()
             end
             if event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" or event == "UNIT_HEALTH"
                 or event == "UNIT_MAXHEALTH" or event == "UNIT_ABSORB_AMOUNT_CHANGED"
-                or event == "UNIT_AURA" then                
+                or event == "UNIT_AURA" or event == "UNIT_SPELLCAST_SUCCEEDED" then
                 local unit = ...
                 if unit and unit ~= "player" then return end
             end
@@ -877,14 +1081,24 @@ function BCDM:UpdateSecondaryPowerBar()
         secondaryPowerBar:RegisterEvent("RUNE_POWER_UPDATE")
         secondaryPowerBar:RegisterEvent("RUNE_TYPE_UPDATE")
         secondaryPowerBar:RegisterEvent("UNIT_AURA")
+        secondaryPowerBar:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+        secondaryPowerBar:RegisterEvent("PLAYER_REGEN_DISABLED")
+        secondaryPowerBar:RegisterEvent("PLAYER_REGEN_ENABLED")
+        secondaryPowerBar:RegisterEvent("PLAYER_DEAD")
+        secondaryPowerBar:RegisterEvent("PLAYER_ALIVE")
+        secondaryPowerBar:RegisterEvent("PLAYER_TALENT_UPDATE")
+        secondaryPowerBar:RegisterEvent("ACTIVE_PLAYER_SPECIALIZATION_CHANGED")
+        secondaryPowerBar:RegisterEvent("TRAIT_CONFIG_UPDATED")
 
         secondaryPowerBar:SetScript("OnEvent", function(self, event, ...)
+            HandleFuryWWTrackerEvent(event, ...)
             if event == "RUNE_POWER_UPDATE" or event == "RUNE_TYPE_UPDATE" then
                 if DetectSecondaryPower() == Enum.PowerType.Runes then UpdateRuneDisplay() end
                 return
             end
             if event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" or event == "UNIT_HEALTH"
-                or event == "UNIT_MAXHEALTH" or event == "UNIT_ABSORB_AMOUNT_CHANGED" or event == "UNIT_AURA" then
+                or event == "UNIT_MAXHEALTH" or event == "UNIT_ABSORB_AMOUNT_CHANGED"
+                or event == "UNIT_AURA" or event == "UNIT_SPELLCAST_SUCCEEDED" then
                 local unit = ...
                 if unit and unit ~= "player" then return end
             end

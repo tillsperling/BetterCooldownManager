@@ -160,6 +160,8 @@ local function DetectSecondaryPower()
         if specID == 263 then return true end
     elseif class == "PRIEST" then
         if specID == 258 and showMana then return true end    
+    elseif class == "WARRIOR" then
+        if specID == 72 then return true end
     end
     return false
 end

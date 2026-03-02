@@ -39,6 +39,7 @@ local PowerNames = {
     ["STAGGER"] = LL("Stagger"),
     ["SOUL"] = LL("Soul"),
     ["SOULFRAGMENTS"] = LL("Soul Fragments"),
+    ["WHIRLWIND_STACKS"] = LL("Whirlwind Stacks"),
     ["RUNE_RECHARGE"] = LL("Rune on Cooldown"),
     ["CHARGED_COMBO_POINTS"] = LL("Charged Combo Points"),
     ["ESSENCE_RECHARGE"] = LL("Essence on Cooldown"),
@@ -82,6 +83,7 @@ local ClassesWithSecondaryPower = {
     ["DEMONHUNTER"] = true,
     ["SHAMAN"]      = true,
     ["PRIEST"]      = true,
+    ["WARRIOR"]     = true,
 }
 
 local function DeepDisable(widget, disabled, skipWidget)
@@ -126,6 +128,8 @@ local function DetectSecondaryPower()
         if specID == 262 and showMana then return true end
     elseif class == "PRIEST" then
         if specID == 258 and showMana then return true end
+    elseif class == "WARRIOR" then
+        if specID == 72 then return true end
     end
     return false
 end
@@ -903,6 +907,7 @@ local function CreateGeneralSettings(parentContainer)
             SOUL                           = { 0.29, 0.42, 1.00, 1.0},
             SOULFRAGMENTS                  = { 0.29, 0.42, 1.00, 1.0},
             [Enum.PowerType.Maelstrom]     = { 0.25, 0.50, 0.80, 1.0},
+            WHIRLWIND_STACKS               = { 0.13, 0.47, 0.71, 1.0},
             RUNE_RECHARGE                 = { 0.5, 0.5, 0.5, 1.0 },
             CHARGED_COMBO_POINTS           = { 0.25, 0.5, 1.00, 1.0}
         }
@@ -933,7 +938,7 @@ local function CreateGeneralSettings(parentContainer)
     SecondaryColoursContainer:SetLayout("Flow")
     CustomColoursContainer:AddChild(SecondaryColoursContainer)
 
-    local SecondaryPowerOrder = {Enum.PowerType.Chi, Enum.PowerType.ComboPoints, Enum.PowerType.HolyPower, Enum.PowerType.ArcaneCharges, Enum.PowerType.Essence, Enum.PowerType.SoulShards, "STAGGER", Enum.PowerType.Runes, "RUNE_RECHARGE", "SOUL", "SOULFRAGMENTS", Enum.PowerType.Maelstrom, "CHARGED_COMBO_POINTS", "ESSENCE_RECHARGE" }
+    local SecondaryPowerOrder = {Enum.PowerType.Chi, Enum.PowerType.ComboPoints, Enum.PowerType.HolyPower, Enum.PowerType.ArcaneCharges, Enum.PowerType.Essence, Enum.PowerType.SoulShards, "STAGGER", Enum.PowerType.Runes, "RUNE_RECHARGE", "SOUL", "SOULFRAGMENTS", Enum.PowerType.Maelstrom, "WHIRLWIND_STACKS", "CHARGED_COMBO_POINTS", "ESSENCE_RECHARGE" }
     for _, powerType in ipairs(SecondaryPowerOrder) do
         local powerColour = BCDM.db.profile.General.Colours.SecondaryPower[powerType]
         local PowerColour = AG:Create("ColorPicker")

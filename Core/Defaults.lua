@@ -57,6 +57,7 @@ local Defaults = {
                     [Enum.PowerType.SoulShards]    = { 0.58, 0.51, 0.79, 1.0 },
                     [Enum.PowerType.Runes]         = { 0.77, 0.12, 0.23, 1.0 },
                     [Enum.PowerType.Maelstrom]     = { 0.25, 0.50, 0.80, 1.0},
+                    WHIRLWIND_STACKS               = { 0.13, 0.47, 0.71, 1.0},
                     SOUL                           = { 0.29, 0.42, 1.00, 1.0},
                     SOULFRAGMENTS                  = { 0.29, 0.42, 1.00, 1.0},
                     STAGGER                        = { 0.00, 1.00, 0.59, 1.0 },
