@@ -14,8 +14,8 @@ end
 local function ResolveTrackedBuffFrame(cooldownID)
     if not cooldownID or cooldownID <= 0 then return end
     local viewers = {
-        _G["BuffBarCooldownViewer"],   -- Tracked Bars
-        _G["BuffIconCooldownViewer"],  -- Tracked Buffs
+        _G["BuffBarCooldownViewer"],
+        _G["BuffIconCooldownViewer"],
     }
     for _, viewer in ipairs(viewers) do
         if viewer then
@@ -54,8 +54,8 @@ local function SetTertiaryTrackedSourceVisibility(cooldownID, hideSource)
     if not hideSource or not cooldownID or cooldownID <= 0 then return end
 
     local viewers = {
-        _G["BuffBarCooldownViewer"],   -- Tracked Bars
-        _G["BuffIconCooldownViewer"],  -- Tracked Buffs
+        _G["BuffBarCooldownViewer"],
+        _G["BuffIconCooldownViewer"],
     }
 
     for _, viewer in ipairs(viewers) do
@@ -98,23 +98,15 @@ local function ResolveTertiaryAuraData(db)
     local auraInstanceID = cdmFrame.auraInstanceID
 
     if sourceSpellID > 0 then
-        local linkedSpellID = cdmFrame.cooldownInfo and cdmFrame.cooldownInfo.linkedSpellID
-        local isTrackedSpell = false
-        if linkedSpellID then
-            local ok, result = pcall(function() return linkedSpellID == sourceSpellID end)
-            if ok then
-                isTrackedSpell = result
-            else
-                isTrackedSpell = true
-            end
+        local fromFrameAuraData
+        if HasAuraInstanceID(auraInstanceID) then
+            fromFrameAuraData = C_UnitAuras.GetAuraDataByAuraInstanceID(auraDataUnit, auraInstanceID)
         end
 
-        if isTrackedSpell and HasAuraInstanceID(auraInstanceID) then
-            auraData = C_UnitAuras.GetAuraDataByAuraInstanceID(auraDataUnit, auraInstanceID)
-            if auraData then
-                state.trackedAuraInstanceID = auraInstanceID
-                state.trackedAuraUnit = auraDataUnit
-            end
+        if fromFrameAuraData then
+            auraData = fromFrameAuraData
+            state.trackedAuraInstanceID = auraInstanceID
+            state.trackedAuraUnit = auraDataUnit
         elseif HasAuraInstanceID(state.trackedAuraInstanceID) then
             local cachedUnit = state.trackedAuraUnit or "player"
             auraData = C_UnitAuras.GetAuraDataByAuraInstanceID(cachedUnit, state.trackedAuraInstanceID)
@@ -209,8 +201,8 @@ function BCDM:BuildTrackedBuffSourceList()
     end
 
     local viewers = {
-        _G["BuffBarCooldownViewer"],   -- Tracked Bars
-        _G["BuffIconCooldownViewer"],  -- Tracked Buffs
+        _G["BuffBarCooldownViewer"],
+        _G["BuffIconCooldownViewer"],
     }
     for _, viewer in ipairs(viewers) do
         if viewer then
