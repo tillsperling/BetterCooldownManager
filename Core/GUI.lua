@@ -3007,6 +3007,9 @@ end
 
 local function CreateTertiaryResourceBarSettings(parentContainer)
     local db = BCDM:GetActiveTertiaryResourceBarDB(true) or BCDM.db.profile.TertiaryResourceBar
+    db.StackText = db.StackText or { Enabled = true, FontSize = 12, FrameStrata = "HIGH", Layout = {"CENTER", "CENTER", 0, 0}, Colour = {1, 1, 1, 1} }
+    db.StackText.Layout = db.StackText.Layout or {"CENTER", "CENTER", 0, 0}
+    local stackTextDB = db.StackText
     local RefreshTertiaryResourceBarGUISettings
     local RefreshTertiarySourceSettings
     local IsTertiarySpecEligible = function()
@@ -3131,6 +3134,88 @@ local function CreateTertiaryResourceBarSettings(parentContainer)
     hideTrackedSourceCheckbox:SetRelativeWidth(0.5)
     toggleContainer:AddChild(hideTrackedSourceCheckbox)
 
+    local stackTextContainer = AG:Create("InlineGroup")
+    stackTextContainer:SetTitle(LL("Stack Text"))
+    stackTextContainer:SetFullWidth(true)
+    stackTextContainer:SetLayout("Flow")
+    ScrollFrame:AddChild(stackTextContainer)
+
+    local stackTextEnabledCheckbox = AG:Create("CheckBox")
+    stackTextEnabledCheckbox:SetLabel(LL("Stack Text Enabled"))
+    stackTextEnabledCheckbox:SetValue(stackTextDB.Enabled ~= false)
+    stackTextEnabledCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.Enabled = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextEnabledCheckbox:SetRelativeWidth(0.33)
+    stackTextContainer:AddChild(stackTextEnabledCheckbox)
+
+    local stackTextFontSizeSlider = AG:Create("Slider")
+    stackTextFontSizeSlider:SetLabel(LL("Stack Text Size"))
+    stackTextFontSizeSlider:SetValue(stackTextDB.FontSize or 12)
+    stackTextFontSizeSlider:SetSliderValues(8, 40, 1)
+    stackTextFontSizeSlider:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.FontSize = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextFontSizeSlider:SetRelativeWidth(0.33)
+    stackTextContainer:AddChild(stackTextFontSizeSlider)
+
+    local stackTextFrameStrataDropdown = AG:Create("Dropdown")
+    stackTextFrameStrataDropdown:SetLabel(LL("Stack Text Strata"))
+    stackTextFrameStrataDropdown:SetList({["BACKGROUND"] = "Background", ["LOW"] = "Low", ["MEDIUM"] = "Medium", ["HIGH"] = "High", ["DIALOG"] = "Dialog", ["FULLSCREEN"] = "Fullscreen", ["FULLSCREEN_DIALOG"] = "Fullscreen Dialog", ["TOOLTIP"] = "Tooltip"}, {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"})
+    stackTextFrameStrataDropdown:SetValue(stackTextDB.FrameStrata or "HIGH")
+    stackTextFrameStrataDropdown:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.FrameStrata = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextFrameStrataDropdown:SetRelativeWidth(0.33)
+    stackTextContainer:AddChild(stackTextFrameStrataDropdown)
+
+    local stackTextAnchorFromDropdown = AG:Create("Dropdown")
+    stackTextAnchorFromDropdown:SetLabel(LL("Stack Anchor From"))
+    stackTextAnchorFromDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+    stackTextAnchorFromDropdown:SetValue(stackTextDB.Layout[1] or "CENTER")
+    stackTextAnchorFromDropdown:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.Layout[1] = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextAnchorFromDropdown:SetRelativeWidth(0.25)
+    stackTextContainer:AddChild(stackTextAnchorFromDropdown)
+
+    local stackTextAnchorToDropdown = AG:Create("Dropdown")
+    stackTextAnchorToDropdown:SetLabel(LL("Stack Anchor To"))
+    stackTextAnchorToDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+    stackTextAnchorToDropdown:SetValue(stackTextDB.Layout[2] or "CENTER")
+    stackTextAnchorToDropdown:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.Layout[2] = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextAnchorToDropdown:SetRelativeWidth(0.25)
+    stackTextContainer:AddChild(stackTextAnchorToDropdown)
+
+    local stackTextXOffsetSlider = AG:Create("Slider")
+    stackTextXOffsetSlider:SetLabel(LL("Stack X Offset"))
+    stackTextXOffsetSlider:SetValue(stackTextDB.Layout[3] or 0)
+    stackTextXOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+    stackTextXOffsetSlider:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.Layout[3] = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextXOffsetSlider:SetRelativeWidth(0.25)
+    stackTextContainer:AddChild(stackTextXOffsetSlider)
+
+    local stackTextYOffsetSlider = AG:Create("Slider")
+    stackTextYOffsetSlider:SetLabel(LL("Stack Y Offset"))
+    stackTextYOffsetSlider:SetValue(stackTextDB.Layout[4] or 0)
+    stackTextYOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+    stackTextYOffsetSlider:SetCallback("OnValueChanged", function(_, _, value)
+        stackTextDB.Layout[4] = value
+        BCDM:UpdateTertiaryResourceBar()
+    end)
+    stackTextYOffsetSlider:SetRelativeWidth(0.25)
+    stackTextContainer:AddChild(stackTextYOffsetSlider)
+
     local foregroundColourPicker = AG:Create("ColorPicker")
     foregroundColourPicker:SetLabel(LL("Foreground Colour"))
     foregroundColourPicker:SetColor(db.ForegroundColour[1], db.ForegroundColour[2], db.ForegroundColour[3], db.ForegroundColour[4])
@@ -3175,6 +3260,13 @@ local function CreateTertiaryResourceBarSettings(parentContainer)
         maxDurationSlider:SetDisabled(db.AutoDuration ~= false)
         hideWhenInactiveCheckbox:SetValue(db.HideWhenInactive == true)
         hideTrackedSourceCheckbox:SetValue(db.HideTrackedSource == true)
+        stackTextEnabledCheckbox:SetValue(stackTextDB.Enabled ~= false)
+        stackTextFontSizeSlider:SetValue(stackTextDB.FontSize or 12)
+        stackTextFrameStrataDropdown:SetValue(stackTextDB.FrameStrata or "HIGH")
+        stackTextAnchorFromDropdown:SetValue(stackTextDB.Layout[1] or "CENTER")
+        stackTextAnchorToDropdown:SetValue(stackTextDB.Layout[2] or "CENTER")
+        stackTextXOffsetSlider:SetValue(stackTextDB.Layout[3] or 0)
+        stackTextYOffsetSlider:SetValue(stackTextDB.Layout[4] or 0)
     end
 
     local layoutContainer = AG:Create("InlineGroup")
@@ -3261,6 +3353,9 @@ local function CreateTertiaryResourceBarSettings(parentContainer)
             for _, child in ipairs(layoutContainer.children) do
                 child:SetDisabled(true)
             end
+            for _, child in ipairs(stackTextContainer.children) do
+                child:SetDisabled(true)
+            end
             return
         end
 
@@ -3274,11 +3369,17 @@ local function CreateTertiaryResourceBarSettings(parentContainer)
             for _, child in ipairs(layoutContainer.children) do
                 child:SetDisabled(true)
             end
+            for _, child in ipairs(stackTextContainer.children) do
+                child:SetDisabled(true)
+            end
         else
             for _, child in ipairs(toggleContainer.children) do
                 child:SetDisabled(false)
             end
             for _, child in ipairs(layoutContainer.children) do
+                child:SetDisabled(false)
+            end
+            for _, child in ipairs(stackTextContainer.children) do
                 child:SetDisabled(false)
             end
             if db.MatchWidthOfAnchor then
@@ -3289,6 +3390,13 @@ local function CreateTertiaryResourceBarSettings(parentContainer)
             if RefreshTertiarySourceSettings then
                 RefreshTertiarySourceSettings()
             end
+            local stackEnabled = stackTextDB.Enabled ~= false
+            stackTextFontSizeSlider:SetDisabled(not stackEnabled)
+            stackTextFrameStrataDropdown:SetDisabled(not stackEnabled)
+            stackTextAnchorFromDropdown:SetDisabled(not stackEnabled)
+            stackTextAnchorToDropdown:SetDisabled(not stackEnabled)
+            stackTextXOffsetSlider:SetDisabled(not stackEnabled)
+            stackTextYOffsetSlider:SetDisabled(not stackEnabled)
         end
     end
 

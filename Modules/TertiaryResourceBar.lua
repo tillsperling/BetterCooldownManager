@@ -143,7 +143,32 @@ local function ResolveTertiaryAuraData(db)
         end
     end
 
-    return remaining, maxDuration
+    local stackText
+    if cdmFrame and cdmFrame.Applications and cdmFrame.Applications.Applications and cdmFrame.Applications.Applications.GetText then
+        local okText, value = pcall(cdmFrame.Applications.Applications.GetText, cdmFrame.Applications.Applications)
+        if okText and value then
+            stackText = value
+        end
+    end
+    if not stackText and cdmFrame and cdmFrame.ChargeCount and cdmFrame.ChargeCount.Current and cdmFrame.ChargeCount.Current.GetText then
+        local okText, value = pcall(cdmFrame.ChargeCount.Current.GetText, cdmFrame.ChargeCount.Current)
+        if okText and value then
+            stackText = value
+        end
+    end
+    if not stackText and auraData then
+        local function TryAuraFieldText(field)
+            local okField, rawValue = pcall(function() return auraData[field] end)
+            if not okField or rawValue == nil then return end
+            local okText, textValue = pcall(tostring, rawValue)
+            if okText and textValue then
+                return textValue
+            end
+        end
+        stackText = TryAuraFieldText("applications") or TryAuraFieldText("stackCount") or TryAuraFieldText("charges")
+    end
+
+    return remaining, maxDuration, stackText
 end
 
 local function UpdateTertiaryResourceBarValue(self, elapsed)
@@ -157,7 +182,7 @@ local function UpdateTertiaryResourceBarValue(self, elapsed)
 
     SetTertiaryTrackedSourceVisibility(db.CooldownID or 0, db.HideTrackedSource == true)
 
-    local remaining, maxDuration = ResolveTertiaryAuraData(db)
+    local remaining, maxDuration, stackText = ResolveTertiaryAuraData(db)
     if remaining and maxDuration then
         local okRange = pcall(self.Status.SetMinMaxValues, self.Status, 0, maxDuration)
         local okValue = pcall(self.Status.SetValue, self.Status, remaining)
@@ -168,6 +193,16 @@ local function UpdateTertiaryResourceBarValue(self, elapsed)
         if not self:IsShown() then
             self:Show()
         end
+        if self.StackText then
+            local stackTextDB = db.StackText or {}
+            if stackTextDB.Enabled ~= false and stackText then
+                self.StackText:SetText(stackText)
+                self.StackText:Show()
+            else
+                self.StackText:SetText("")
+                self.StackText:Hide()
+            end
+        end
     else
         self.Status:SetMinMaxValues(0, 1)
         self.Status:SetValue(0)
@@ -175,6 +210,10 @@ local function UpdateTertiaryResourceBarValue(self, elapsed)
             self:Hide()
         else
             self:Show()
+        end
+        if self.StackText then
+            self.StackText:SetText("")
+            self.StackText:Hide()
         end
     end
 end
@@ -236,10 +275,23 @@ function BCDM:UpdateTertiaryResourceBar()
         tertiaryBar.Status:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
         tertiaryBar:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8" })
     end
+    if not tertiaryBar.StackTextFrame then
+        tertiaryBar.StackTextFrame = CreateFrame("Frame", nil, tertiaryBar)
+    end
+    if not tertiaryBar.StackText then
+        tertiaryBar.StackText = tertiaryBar.StackTextFrame:CreateFontString(nil, "OVERLAY")
+    end
+    if not tertiaryBar._bcdmStackTextFontInitialized then
+        local fontFlag = (BCDM.db and BCDM.db.profile and BCDM.db.profile.General and BCDM.db.profile.General.Fonts and BCDM.db.profile.General.Fonts.FontFlag) or "OUTLINE"
+        tertiaryBar.StackText:SetFont(BCDM.Media and BCDM.Media.Font or STANDARD_TEXT_FONT, 12, fontFlag)
+        tertiaryBar._bcdmStackTextFontInitialized = true
+    end
 
     if not db.Enabled then
         tertiaryBar:SetScript("OnUpdate", nil)
         SetTertiaryTrackedSourceVisibility(0, false)
+        tertiaryBar.StackTextFrame:Hide()
+        tertiaryBar.StackText:Hide()
         tertiaryBar:Hide()
         return
     end
@@ -268,6 +320,24 @@ function BCDM:UpdateTertiaryResourceBar()
     tertiaryBar.Status:SetPoint("TOPLEFT", tertiaryBar, "TOPLEFT", borderSize, -borderSize)
     tertiaryBar.Status:SetPoint("BOTTOMRIGHT", tertiaryBar, "BOTTOMRIGHT", -borderSize, borderSize)
     BCDM:AddBorder(tertiaryBar)
+
+    local stackTextDB = db.StackText or {}
+    stackTextDB.Layout = stackTextDB.Layout or {"CENTER", "CENTER", 0, 0}
+    local stackTextLayout = stackTextDB.Layout
+    local fontFlag = (BCDM.db and BCDM.db.profile and BCDM.db.profile.General and BCDM.db.profile.General.Fonts and BCDM.db.profile.General.Fonts.FontFlag) or "OUTLINE"
+    tertiaryBar.StackTextFrame:ClearAllPoints()
+    tertiaryBar.StackTextFrame:SetAllPoints(tertiaryBar.Status)
+    tertiaryBar.StackTextFrame:SetFrameStrata(stackTextDB.FrameStrata or "HIGH")
+    tertiaryBar.StackTextFrame:SetFrameLevel((tertiaryBar:GetFrameLevel() or 0) + 20)
+    tertiaryBar.StackTextFrame:Show()
+    tertiaryBar.StackText:SetFont(BCDM.Media and BCDM.Media.Font or STANDARD_TEXT_FONT, stackTextDB.FontSize or 12, fontFlag)
+    tertiaryBar.StackText:SetDrawLayer("OVERLAY")
+    tertiaryBar.StackText:ClearAllPoints()
+    tertiaryBar.StackText:SetPoint(stackTextLayout[1] or "CENTER", tertiaryBar.StackTextFrame, stackTextLayout[2] or "CENTER", stackTextLayout[3] or 0, stackTextLayout[4] or 0)
+    local stackTextColour = stackTextDB.Colour or {1, 1, 1, 1}
+    tertiaryBar.StackText:SetTextColor(stackTextColour[1] or 1, stackTextColour[2] or 1, stackTextColour[3] or 1, stackTextColour[4] or 1)
+    tertiaryBar.StackText:SetText("")
+    tertiaryBar.StackText:Hide()
 
     tertiaryBar:SetScript("OnUpdate", UpdateTertiaryResourceBarValue)
     UpdateTertiaryResourceBarValue(tertiaryBar, tertiaryBarUpdateThrottle)

@@ -505,6 +505,13 @@ local Defaults = {
             BackgroundColour = {34/255, 34/255, 34/255, 1},
             ForegroundColour = {34/255, 34/255, 34/255, 1},
             Layout = {"TOP", "BCDM_PowerBar", "BOTTOM", 0, -1},
+            StackText = {
+                Enabled = true,
+                FontSize = 12,
+                FrameStrata = "HIGH",
+                Layout = {"CENTER", "CENTER", 0, 0},
+                Colour = {1, 1, 1, 1},
+            },
             PerSpec = {},
         },
         CastBar = {

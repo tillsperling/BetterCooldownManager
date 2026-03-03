@@ -295,6 +295,22 @@ end
 
 function BCDM:SetFrameShownWithFade(frame, shouldShow, duration)
     if not frame then return end
+    local function IsProtectedInCombat(targetFrame)
+        if not InCombatLockdown() then return false end
+        if targetFrame and targetFrame.IsProtected and targetFrame:IsProtected() then
+            return true
+        end
+        local frameName = targetFrame and targetFrame.GetName and targetFrame:GetName()
+        return frameName == "EssentialCooldownViewer"
+            or frameName == "UtilityCooldownViewer"
+            or frameName == "BuffIconCooldownViewer"
+    end
+
+    if IsProtectedInCombat(frame) then
+        BCDM:QueueMountedVisibilityRefresh()
+        return
+    end
+
     local fadeDuration = duration or mountedVisibilityFadeDuration
     if fadeDuration <= 0 then
         frame:SetShown(shouldShow)
@@ -314,6 +330,11 @@ function BCDM:SetFrameShownWithFade(frame, shouldShow, duration)
         animGroup:SetScript("OnFinished", function(group)
             local targetFrame = group:GetParent()
             if not targetFrame then return end
+            if IsProtectedInCombat(targetFrame) then
+                targetFrame:SetAlpha(1)
+                BCDM:QueueMountedVisibilityRefresh()
+                return
+            end
             if targetFrame._bcdmFadeShouldShow then
                 targetFrame:SetAlpha(1)
                 targetFrame:Show()
