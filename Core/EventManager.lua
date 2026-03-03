@@ -34,11 +34,11 @@ function BCDM:SetupEventManager()
         if event == "PLAYER_MOUNT_DISPLAY_CHANGED" then
             C_Timer.After(0, function()
                 if InCombatLockdown() then return end
-                BCDM:UpdateBCDM()
+                BCDM:ApplyMountedCDMVisibility()
             end)
             C_Timer.After(0.2, function()
                 if InCombatLockdown() then return end
-                BCDM:UpdateBCDM()
+                BCDM:ApplyMountedCDMVisibility()
             end)
             return
         end

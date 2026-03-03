@@ -388,7 +388,9 @@ function BCDM:ApplyMountedCDMVisibility()
         if tertiaryBar then
             if tertiaryResourceBarDB and tertiaryResourceBarDB.Enabled then
                 BCDM:UpdateTertiaryResourceBar()
-                BCDM:SetFrameShownWithFade(tertiaryBar, true)
+                if tertiaryBar:IsShown() then
+                    BCDM:SetFrameShownWithFade(tertiaryBar, true)
+                end
                 C_Timer.After(0.2, function()
                     if InCombatLockdown() then return end
                     if BCDM:ShouldHideCDMWhileMounted() then return end
@@ -595,10 +597,7 @@ local function UpdateTertiaryResourceBarValue(self, elapsed)
 
     local db = BCDM:GetActiveTertiaryResourceBarDB(false)
     if not db or not db.Enabled then return end
-    if BCDM:ShouldHideCDMWhileMounted() then
-        self:Hide()
-        return
-    end
+    if BCDM:ShouldHideCDMWhileMounted() then return end
 
     SetTertiaryTrackedSourceVisibility(db.CooldownID or 0, db.HideTrackedSource == true)
 

@@ -654,9 +654,6 @@ end
 
 UpdatePowerValues = function()
     if BCDM:ShouldHideCDMWhileMounted() then
-        if BCDM.SecondaryPowerBar then
-            BCDM.SecondaryPowerBar:Hide()
-        end
         return
     end
     local powerType = DetectSecondaryPower()
@@ -808,7 +805,9 @@ UpdatePowerValues = function()
     if not (powerType == "STAGGER" and secondaryPowerBarDB.ColourByState) then
         secondaryPowerBar.Status:SetStatusBarColor(GetPowerBarColor())
     end
-    secondaryPowerBar:Show()
+    if not BCDM:ShouldHideCDMWhileMounted() then
+        secondaryPowerBar:Show()
+    end
 end
 
 local function CreateTicksBasedOnPowerType()
@@ -968,7 +967,9 @@ function BCDM:CreateSecondaryPowerBar()
             secondaryPowerBar.Status:SetMinMaxValues(0, UnitPowerMax("player"))
             secondaryPowerBar.Status:SetValue(UnitPower("player"))
             NudgeSecondaryPowerBar("BCDM_SecondaryPowerBar", -0.1, 0)
-            secondaryPowerBar:Show()
+            if not BCDM:ShouldHideCDMWhileMounted() then
+                secondaryPowerBar:Show()
+            end
         end
 
         secondaryPowerBar:RegisterEvent("UNIT_POWER_UPDATE")
@@ -1117,7 +1118,9 @@ function BCDM:UpdateSecondaryPowerBar()
         UpdatePowerValues()
         CreateTicksBasedOnPowerType()
         NudgeSecondaryPowerBar("BCDM_SecondaryPowerBar", -0.1, 0)
-        secondaryPowerBar:Show()
+        if not BCDM:ShouldHideCDMWhileMounted() then
+            secondaryPowerBar:Show()
+        end
         BCDM:ApplyMountedCDMVisibility()
     else
         secondaryPowerBar:Hide()
