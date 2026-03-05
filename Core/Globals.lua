@@ -257,6 +257,32 @@ function BCDM:GetActiveTertiaryResourceBarDB(createIfMissing)
     return base, classToken, specToken
 end
 
+function BCDM:GetActiveCastBarDB(createIfMissing)
+    local profile = BCDM.db and BCDM.db.profile
+    if not profile or not profile.CastBar then return end
+
+    local base = profile.CastBar
+    base.PerSpecLayout = base.PerSpecLayout or {}
+    local perSpecLayout = base.PerSpecLayout
+
+    local classToken, specToken = ResolveCurrentClassSpecTokens()
+    if not classToken or not specToken then
+        return base, classToken, specToken
+    end
+
+    perSpecLayout[classToken] = perSpecLayout[classToken] or {}
+    if createIfMissing and not perSpecLayout[classToken][specToken] then
+        perSpecLayout[classToken][specToken] = BCDM:CopyTable(base.Layout or {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1})
+    end
+
+    local specLayout = perSpecLayout[classToken][specToken]
+    if specLayout then
+        base.Layout = specLayout
+    end
+
+    return base, classToken, specToken
+end
+
 function BCDM:ShouldHideCDMWhileMounted()
     local isDruidFlightForm = false
     if select(2, UnitClass("player")) == "DRUID" then
@@ -391,7 +417,7 @@ function BCDM:ApplyMountedCDMVisibility()
         local tertiaryBar = _G["BCDM_TertiaryResourceBar"]
         local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
         local secondaryPowerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.SecondaryPowerBar
-        local tertiaryResourceBarDB = BCDM:GetActiveTertiaryResourceBarDB(false)
+        local tertiaryResourceBarDB = BCDM:GetActiveTertiaryResourceBarDB(true)
         if powerBar and powerBarDB then
             local secondaryInPrimarySlot = secondaryBar
                 and secondaryBar:IsShown()

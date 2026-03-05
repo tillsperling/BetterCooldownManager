@@ -2775,11 +2775,13 @@ local function CreateCastBarTextSettings(parentContainer)
 end
 
 local function CreateCastBarSettings(parentContainer)
-    if BCDM.db.profile.CastBar.AnchorToActiveResourceBar ~= nil then
-        if BCDM.db.profile.CastBar.AnchorToActiveResourceBar then
-            BCDM.db.profile.CastBar.Layout[2] = "ACTIVE_RESOURCE"
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
+
+    if CastBarDB.AnchorToActiveResourceBar ~= nil then
+        if CastBarDB.AnchorToActiveResourceBar then
+            CastBarDB.Layout[2] = "ACTIVE_RESOURCE"
         end
-        BCDM.db.profile.CastBar.AnchorToActiveResourceBar = nil
+        CastBarDB.AnchorToActiveResourceBar = nil
     end
 
     local ScrollFrame = AG:Create("ScrollFrame")
@@ -2796,46 +2798,46 @@ local function CreateCastBarSettings(parentContainer)
 
     local enabledCheckbox = AG:Create("CheckBox")
     enabledCheckbox:SetLabel(LL("Enable Cast Bar"))
-    enabledCheckbox:SetValue(BCDM.db.profile.CastBar.Enabled)
-    enabledCheckbox:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Enabled = value BCDM:PromptReload() end)
+    enabledCheckbox:SetValue(CastBarDB.Enabled)
+    enabledCheckbox:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Enabled = value BCDM:PromptReload() end)
     enabledCheckbox:SetRelativeWidth(0.33)
     toggleContainer:AddChild(enabledCheckbox)
 
     local colourByClassCheckbox = AG:Create("CheckBox")
     colourByClassCheckbox:SetLabel(LL("Colour By Class"))
-    colourByClassCheckbox:SetValue(BCDM.db.profile.CastBar.ColourByClass)
-    colourByClassCheckbox:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.ColourByClass = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
+    colourByClassCheckbox:SetValue(CastBarDB.ColourByClass)
+    colourByClassCheckbox:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.ColourByClass = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
     colourByClassCheckbox:SetRelativeWidth(0.33)
     toggleContainer:AddChild(colourByClassCheckbox)
 
     local matchAnchorWidthCheckbox = AG:Create("CheckBox")
     matchAnchorWidthCheckbox:SetLabel(LL("Match Width Of Anchor"))
-    matchAnchorWidthCheckbox:SetValue(BCDM.db.profile.CastBar.MatchWidthOfAnchor)
-    matchAnchorWidthCheckbox:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.MatchWidthOfAnchor = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
+    matchAnchorWidthCheckbox:SetValue(CastBarDB.MatchWidthOfAnchor)
+    matchAnchorWidthCheckbox:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.MatchWidthOfAnchor = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
     matchAnchorWidthCheckbox:SetRelativeWidth(0.33)
     toggleContainer:AddChild(matchAnchorWidthCheckbox)
 
     local foregroundColourPicker = AG:Create("ColorPicker")
     foregroundColourPicker:SetLabel(LL("Foreground Colour"))
-    foregroundColourPicker:SetColor(BCDM.db.profile.CastBar.ForegroundColour[1], BCDM.db.profile.CastBar.ForegroundColour[2], BCDM.db.profile.CastBar.ForegroundColour[3], BCDM.db.profile.CastBar.ForegroundColour[4])
-    foregroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) BCDM.db.profile.CastBar.ForegroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
+    foregroundColourPicker:SetColor(CastBarDB.ForegroundColour[1], CastBarDB.ForegroundColour[2], CastBarDB.ForegroundColour[3], CastBarDB.ForegroundColour[4])
+    foregroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) CastBarDB.ForegroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
     foregroundColourPicker:SetRelativeWidth(0.33)
     foregroundColourPicker:SetHasAlpha(true)
     toggleContainer:AddChild(foregroundColourPicker)
 
-    local channelForegroundColour = BCDM.db.profile.CastBar.ChannelForegroundColour or BCDM.db.profile.CastBar.ForegroundColour
+    local channelForegroundColour = CastBarDB.ChannelForegroundColour or CastBarDB.ForegroundColour
     local channelForegroundColourPicker = AG:Create("ColorPicker")
     channelForegroundColourPicker:SetLabel(LL("Channel Foreground Colour"))
     channelForegroundColourPicker:SetColor(channelForegroundColour[1], channelForegroundColour[2], channelForegroundColour[3], channelForegroundColour[4])
-    channelForegroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) BCDM.db.profile.CastBar.ChannelForegroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
+    channelForegroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) CastBarDB.ChannelForegroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
     channelForegroundColourPicker:SetRelativeWidth(0.33)
     channelForegroundColourPicker:SetHasAlpha(true)
     toggleContainer:AddChild(channelForegroundColourPicker)
 
     local backgroundColourPicker = AG:Create("ColorPicker")
     backgroundColourPicker:SetLabel(LL("Background Colour"))
-    backgroundColourPicker:SetColor(BCDM.db.profile.CastBar.BackgroundColour[1], BCDM.db.profile.CastBar.BackgroundColour[2], BCDM.db.profile.CastBar.BackgroundColour[3], BCDM.db.profile.CastBar.BackgroundColour[4])
-    backgroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) BCDM.db.profile.CastBar.BackgroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
+    backgroundColourPicker:SetColor(CastBarDB.BackgroundColour[1], CastBarDB.BackgroundColour[2], CastBarDB.BackgroundColour[3], CastBarDB.BackgroundColour[4])
+    backgroundColourPicker:SetCallback("OnValueChanged", function(self, _, r, g, b, a) CastBarDB.BackgroundColour = {r, g, b, a} BCDM:UpdateCastBar() end)
     backgroundColourPicker:SetRelativeWidth(0.33)
     backgroundColourPicker:SetHasAlpha(true)
     toggleContainer:AddChild(backgroundColourPicker)
@@ -2849,8 +2851,8 @@ local function CreateCastBarSettings(parentContainer)
     local anchorFromDropdown = AG:Create("Dropdown")
     anchorFromDropdown:SetLabel(LL("Anchor From"))
     anchorFromDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
-    anchorFromDropdown:SetValue(BCDM.db.profile.CastBar.Layout[1])
-    anchorFromDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[1] = value BCDM:UpdateCastBar() end)
+    anchorFromDropdown:SetValue(CastBarDB.Layout[1])
+    anchorFromDropdown:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Layout[1] = value BCDM:UpdateCastBar() end)
     anchorFromDropdown:SetRelativeWidth(0.33)
     layoutContainer:AddChild(anchorFromDropdown)
 
@@ -2861,56 +2863,56 @@ local function CreateCastBarSettings(parentContainer)
     castBarAnchorLabels["ACTIVE_RESOURCE"] = LL("Automatic (Active Resource Bar)")
     table.insert(castBarAnchorOrder, 1, "ACTIVE_RESOURCE")
     anchorParentDropdown:SetList(castBarAnchorLabels, castBarAnchorOrder)
-    anchorParentDropdown:SetValue(BCDM.db.profile.CastBar.Layout[2])
-    anchorParentDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[2] = value BCDM:UpdateCastBar() end)
+    anchorParentDropdown:SetValue(CastBarDB.Layout[2])
+    anchorParentDropdown:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Layout[2] = value BCDM:UpdateCastBar() end)
     anchorParentDropdown:SetRelativeWidth(0.33)
     layoutContainer:AddChild(anchorParentDropdown)
 
     local anchorToDropdown = AG:Create("Dropdown")
     anchorToDropdown:SetLabel(LL("Anchor To"))
     anchorToDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
-    anchorToDropdown:SetValue(BCDM.db.profile.CastBar.Layout[3])
-    anchorToDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[3] = value BCDM:UpdateCastBar() end)
+    anchorToDropdown:SetValue(CastBarDB.Layout[3])
+    anchorToDropdown:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Layout[3] = value BCDM:UpdateCastBar() end)
     anchorToDropdown:SetRelativeWidth(0.33)
     layoutContainer:AddChild(anchorToDropdown)
 
     local widthSlider = AG:Create("Slider")
     widthSlider:SetLabel(LL("Width"))
-    widthSlider:SetValue(BCDM.db.profile.CastBar.Width)
+    widthSlider:SetValue(CastBarDB.Width)
     widthSlider:SetSliderValues(50, 3000, 0.1)
-    widthSlider:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Width = value BCDM:UpdateCastBar() end)
+    widthSlider:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Width = value BCDM:UpdateCastBar() end)
     widthSlider:SetRelativeWidth(0.5)
     layoutContainer:AddChild(widthSlider)
 
     local heightSlider = AG:Create("Slider")
     heightSlider:SetLabel(LL("Height"))
-    heightSlider:SetValue(BCDM.db.profile.CastBar.Height)
+    heightSlider:SetValue(CastBarDB.Height)
     heightSlider:SetSliderValues(5, 500, 0.1)
-    heightSlider:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Height = value BCDM:UpdateCastBar() end)
+    heightSlider:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Height = value BCDM:UpdateCastBar() end)
     heightSlider:SetRelativeWidth(0.5)
     layoutContainer:AddChild(heightSlider)
 
     local xOffsetSlider = AG:Create("Slider")
     xOffsetSlider:SetLabel(LL("X Offset"))
-    xOffsetSlider:SetValue(BCDM.db.profile.CastBar.Layout[4])
+    xOffsetSlider:SetValue(CastBarDB.Layout[4])
     xOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
-    xOffsetSlider:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[4] = value BCDM:UpdateCastBar() end)
+    xOffsetSlider:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Layout[4] = value BCDM:UpdateCastBar() end)
     xOffsetSlider:SetRelativeWidth(0.33)
     layoutContainer:AddChild(xOffsetSlider)
 
     local yOffsetSlider = AG:Create("Slider")
     yOffsetSlider:SetLabel(LL("Y Offset"))
-    yOffsetSlider:SetValue(BCDM.db.profile.CastBar.Layout[5])
+    yOffsetSlider:SetValue(CastBarDB.Layout[5])
     yOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
-    yOffsetSlider:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Layout[5] = value BCDM:UpdateCastBar() end)
+    yOffsetSlider:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Layout[5] = value BCDM:UpdateCastBar() end)
     yOffsetSlider:SetRelativeWidth(0.33)
     layoutContainer:AddChild(yOffsetSlider)
 
     local frameStrataDropdown = AG:Create("Dropdown")
     frameStrataDropdown:SetLabel(LL("Frame Strata"))
     frameStrataDropdown:SetList({["BACKGROUND"] = "Background", ["LOW"] = "Low", ["MEDIUM"] = "Medium", ["HIGH"] = "High", ["DIALOG"] = "Dialog", ["FULLSCREEN"] = "Fullscreen", ["FULLSCREEN_DIALOG"] = "Fullscreen Dialog", ["TOOLTIP"] = "Tooltip"}, {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"})
-    frameStrataDropdown:SetValue(BCDM.db.profile.CastBar.FrameStrata)
-    frameStrataDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.FrameStrata = value BCDM:UpdateCastBar() end)
+    frameStrataDropdown:SetValue(CastBarDB.FrameStrata)
+    frameStrataDropdown:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.FrameStrata = value BCDM:UpdateCastBar() end)
     frameStrataDropdown:SetRelativeWidth(0.33)
     layoutContainer:AddChild(frameStrataDropdown)
 
@@ -2922,23 +2924,23 @@ local function CreateCastBarSettings(parentContainer)
 
     local enableIconCheckbox = AG:Create("CheckBox")
     enableIconCheckbox:SetLabel(LL("Enable Cast Icon"))
-    enableIconCheckbox:SetValue(BCDM.db.profile.CastBar.Icon.Enabled)
-    enableIconCheckbox:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Icon.Enabled = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
+    enableIconCheckbox:SetValue(CastBarDB.Icon.Enabled)
+    enableIconCheckbox:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Icon.Enabled = value BCDM:UpdateCastBar() RefreshCastBarGUISettings() end)
     enableIconCheckbox:SetRelativeWidth(0.5)
     iconContainer:AddChild(enableIconCheckbox)
 
     local iconLayoutPositionDropdown = AG:Create("Dropdown")
     iconLayoutPositionDropdown:SetLabel(LL("Icon Position"))
     iconLayoutPositionDropdown:SetList({ ["LEFT"] = "Left", ["RIGHT"] = "Right" }, { "LEFT", "RIGHT" })
-    iconLayoutPositionDropdown:SetValue(BCDM.db.profile.CastBar.Icon.Layout)
-    iconLayoutPositionDropdown:SetCallback("OnValueChanged", function(self, _, value) BCDM.db.profile.CastBar.Icon.Layout = value BCDM:UpdateCastBar() end)
+    iconLayoutPositionDropdown:SetValue(CastBarDB.Icon.Layout)
+    iconLayoutPositionDropdown:SetCallback("OnValueChanged", function(self, _, value) CastBarDB.Icon.Layout = value BCDM:UpdateCastBar() end)
     iconLayoutPositionDropdown:SetRelativeWidth(0.5)
     iconContainer:AddChild(iconLayoutPositionDropdown)
 
     local textContainer = CreateCastBarTextSettings(ScrollFrame)
 
     function RefreshCastBarGUISettings()
-        if not BCDM.db.profile.CastBar.Enabled then
+        if not CastBarDB.Enabled then
             for _, child in ipairs(toggleContainer.children) do
                 if child ~= enabledCheckbox then
                     child:SetDisabled(true)
@@ -2979,17 +2981,17 @@ local function CreateCastBarSettings(parentContainer)
                 end
             end
         end
-        if BCDM.db.profile.CastBar.MatchWidthOfAnchor then
+        if CastBarDB.MatchWidthOfAnchor then
             widthSlider:SetDisabled(true)
         else
             widthSlider:SetDisabled(false)
         end
-        if BCDM.db.profile.CastBar.ColourByClass then
+        if CastBarDB.ColourByClass then
             foregroundColourPicker:SetDisabled(true)
         else
             foregroundColourPicker:SetDisabled(false)
         end
-        if not BCDM.db.profile.CastBar.Icon.Enabled then
+        if not CastBarDB.Icon.Enabled then
             for _, child in ipairs(iconContainer.children) do
                 if child ~= enableIconCheckbox then
                     child:SetDisabled(true)

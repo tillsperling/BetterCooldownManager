@@ -176,7 +176,7 @@ local function UpdateTertiaryResourceBarValue(self, elapsed)
     if self._bcdmElapsed < tertiaryBarUpdateThrottle then return end
     self._bcdmElapsed = 0
 
-    local db = BCDM:GetActiveTertiaryResourceBarDB(false)
+    local db = BCDM:GetActiveTertiaryResourceBarDB(true)
     if not db or not db.Enabled then return end
     if BCDM:ShouldHideCDMWhileMounted() then return end
 
@@ -264,7 +264,7 @@ function BCDM:BuildTrackedBuffSourceList()
 end
 
 function BCDM:UpdateTertiaryResourceBar()
-    local db = BCDM:GetActiveTertiaryResourceBarDB(false)
+    local db = BCDM:GetActiveTertiaryResourceBarDB(true)
     if not db then return end
 
     BCDM.TertiaryResourceBar = BCDM.TertiaryResourceBar or CreateFrame("Frame", "BCDM_TertiaryResourceBar", UIParent, "BackdropTemplate")

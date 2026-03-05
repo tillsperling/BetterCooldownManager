@@ -29,7 +29,7 @@ local function SetBarValue(bar, value)
 end
 
 local function FetchCastBarColour()
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     if CastBarDB.ColourByClass then
         local _, class = UnitClass("player")
         local colour = RAID_CLASS_COLORS[class]
@@ -40,7 +40,7 @@ local function FetchCastBarColour()
 end
 
 local function FetchCastBarChannelColour()
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     local colour = CastBarDB.ChannelForegroundColour or CastBarDB.ForegroundColour
     return colour[1], colour[2], colour[3], colour[4]
 end
@@ -91,7 +91,7 @@ local function HasSecondaryPowerForCurrentSpec()
 end
 
 local function ResolveCastBarAnchorParentName()
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     if CastBarDB.Layout[2] == "ACTIVE_RESOURCE" then
         if HasSecondaryPowerForCurrentSpec() then
             return "BCDM_SecondaryPowerBar"
@@ -220,7 +220,7 @@ end
 
 function BCDM:CreateCastBar()
     local GeneralDB = BCDM.db.profile.General
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
 
     SetHooks()
 
@@ -327,7 +327,7 @@ end
 
 function BCDM:UpdateCastBar()
     local GeneralDB = BCDM.db.profile.General
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     local CastBar = BCDM.CastBar
     local borderSize = BCDM.db.profile.CooldownManager.General.BorderSize
     if not CastBar then return end
@@ -426,7 +426,7 @@ function BCDM:UpdateCastBar()
 end
 
 function BCDM:CreateTestCastBar()
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     local borderSize = BCDM.db.profile.CooldownManager.General.BorderSize
     if not BCDM.CastBar then return end
     if BCDM.CAST_BAR_TEST_MODE then
@@ -458,7 +458,7 @@ function BCDM:CreateTestCastBar()
 end
 
 function BCDM:UpdateCastBarWidth()
-    local CastBarDB = BCDM.db.profile.CastBar
+    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
     local CastBar = BCDM.CastBar
     if CastBarDB.Enabled and CastBarDB.MatchWidthOfAnchor then
         ApplyCachedAnchorWidth(CastBar, ResolveCastBarAnchorParentName(), CastBarDB.Width)

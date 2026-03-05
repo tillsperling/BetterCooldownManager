@@ -541,7 +541,8 @@ local Defaults = {
             Icon = {
                 Enabled = true,
                 Layout = "LEFT",
-            }
+            },
+            PerSpecLayout = {},
         },
     },
 }
