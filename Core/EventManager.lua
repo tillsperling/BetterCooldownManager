@@ -27,7 +27,7 @@ function BCDM:SetupEventManager()
         end
         if InCombatLockdown() then
             if event == "PLAYER_MOUNT_DISPLAY_CHANGED" or event == "UPDATE_SHAPESHIFT_FORM" then
-                BCDM:QueueMountedVisibilityRefresh()
+                BCDM:ApplyMountedCDMVisibility()
             end
             return
         end

@@ -231,6 +231,31 @@ local function CopyTertiaryResourceConfig(source)
     return copy
 end
 
+local function SanitizeCastBarLayout(layout, fallbackLayout)
+    local fallback = fallbackLayout or {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1}
+    if type(fallback) ~= "table" then
+        fallback = {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1}
+    end
+
+    if type(layout) ~= "table" then
+        return {
+            fallback[1] or "TOP",
+            fallback[2] or "UtilityCooldownViewer",
+            fallback[3] or "BOTTOM",
+            tonumber(fallback[4]) or 0,
+            tonumber(fallback[5]) or -1,
+        }
+    end
+
+    return {
+        type(layout[1]) == "string" and layout[1] or (fallback[1] or "TOP"),
+        type(layout[2]) == "string" and layout[2] or (fallback[2] or "UtilityCooldownViewer"),
+        type(layout[3]) == "string" and layout[3] or (fallback[3] or "BOTTOM"),
+        tonumber(layout[4]) or tonumber(fallback[4]) or 0,
+        tonumber(layout[5]) or tonumber(fallback[5]) or -1,
+    }
+end
+
 function BCDM:GetActiveTertiaryResourceBarDB(createIfMissing)
     local profile = BCDM.db and BCDM.db.profile
     if not profile or not profile.TertiaryResourceBar then return end
@@ -264,6 +289,7 @@ function BCDM:GetActiveCastBarDB(createIfMissing)
     local base = profile.CastBar
     base.PerSpecLayout = base.PerSpecLayout or {}
     local perSpecLayout = base.PerSpecLayout
+    base.Layout = SanitizeCastBarLayout(base.Layout)
 
     local classToken, specToken = ResolveCurrentClassSpecTokens()
     if not classToken or not specToken then
@@ -272,11 +298,13 @@ function BCDM:GetActiveCastBarDB(createIfMissing)
 
     perSpecLayout[classToken] = perSpecLayout[classToken] or {}
     if createIfMissing and not perSpecLayout[classToken][specToken] then
-        perSpecLayout[classToken][specToken] = BCDM:CopyTable(base.Layout or {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1})
+        perSpecLayout[classToken][specToken] = BCDM:CopyTable(base.Layout)
     end
 
     local specLayout = perSpecLayout[classToken][specToken]
     if specLayout then
+        specLayout = SanitizeCastBarLayout(specLayout, base.Layout)
+        perSpecLayout[classToken][specToken] = specLayout
         base.Layout = specLayout
     end
 
@@ -393,11 +421,6 @@ function BCDM:SetFrameShownWithFade(frame, shouldShow, duration)
 end
 
 function BCDM:ApplyMountedCDMVisibility()
-    if InCombatLockdown() then
-        BCDM:QueueMountedVisibilityRefresh()
-        return
-    end
-
     local shouldHide = BCDM:ShouldHideCDMWhileMounted()
     local viewerFrames = {
         "EssentialCooldownViewer",
@@ -836,8 +859,9 @@ BCDM.AnchorParents = {
             ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
             ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
+            ["BCDM_TertiaryResourceBar"] = "|cFF8080FFBCDM|r: Tertiary Resource Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BCDM_PowerBar"},
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BCDM_PowerBar", "BCDM_TertiaryResourceBar"},
     },
     ["CastBar"] = {
         {
