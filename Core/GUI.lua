@@ -2163,44 +2163,48 @@ local function CreatePowerBarSettings(parentContainer)
     thresholdTicksCheckbox:SetRelativeWidth(0.5)
     toggleContainer:AddChild(thresholdTicksCheckbox)
 
-    local classToken, specToken = ResolveCurrentClassSpecTokens()
+    BCDM.db.profile.PowerBar.ThresholdTicks = BCDM.db.profile.PowerBar.ThresholdTicks or {}
+    local thresholdDB = BCDM.db.profile.PowerBar.ThresholdTicks
+    if type(thresholdDB.Values) ~= "table" then
+        thresholdDB.Values = {}
+    end
+    thresholdDB.Mode = thresholdDB.Mode == "PERCENT" and "PERCENT" or "POWER"
+    thresholdDB.PerSpec = nil
+
+    local thresholdModeDropdown = AG:Create("Dropdown")
+    thresholdModeDropdown:SetLabel(LL("Threshold Mode"))
+    thresholdModeDropdown:SetList({
+        POWER = LL("Power Value"),
+        PERCENT = LL("Percent"),
+    }, {"POWER", "PERCENT"})
+    thresholdModeDropdown:SetValue(thresholdDB.Mode)
+    thresholdModeDropdown:SetCallback("OnValueChanged", function(self, _, value)
+        thresholdDB.Mode = (value == "PERCENT") and "PERCENT" or "POWER"
+        BCDM:UpdatePowerBar()
+    end)
+    thresholdModeDropdown:SetRelativeWidth(0.5)
+    toggleContainer:AddChild(thresholdModeDropdown)
+
     local thresholdsEditBox = AG:Create("EditBox")
-    thresholdsEditBox:SetLabel(LL("Thresholds (Current Spec)"))
+    thresholdsEditBox:SetLabel(LL("Threshold Tick Values"))
     thresholdsEditBox:SetRelativeWidth(0.5)
     thresholdsEditBox:SetCallback("OnEnterPressed", function(self)
-        local playerClass, playerSpec = ResolveCurrentClassSpecTokens()
-        if not playerClass or not playerSpec then return end
-
         local values = ParseThresholdValues(self:GetText())
-        BCDM.db.profile.PowerBar.ThresholdTicks = BCDM.db.profile.PowerBar.ThresholdTicks or {}
-        BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec = BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec or {}
-        local perSpec = BCDM.db.profile.PowerBar.ThresholdTicks.PerSpec
-        perSpec[playerClass] = perSpec[playerClass] or {}
-        if #values > 0 then
-            perSpec[playerClass][playerSpec] = values
-        else
-            perSpec[playerClass][playerSpec] = nil
-            if not next(perSpec[playerClass]) then
-                perSpec[playerClass] = nil
-            end
-        end
+        thresholdDB.Values = values
         self:SetText(FormatThresholdValues(values))
         BCDM:UpdatePowerBar()
     end)
     thresholdsEditBox:SetCallback("OnEnter", function(self)
         GameTooltip:SetOwner(self.frame, "ANCHOR_CURSOR")
-        GameTooltip:AddLine(LL("Enter one or more values separated by commas (example: 35, 80)."))
-        if classToken and specToken then
-            GameTooltip:AddLine(string.format("%s: %s / %s", LL("Editing"), classToken, specToken), 1, 1, 1)
+        if thresholdDB.Mode == "PERCENT" then
+            GameTooltip:AddLine(LL("Enter one or more percentages separated by commas (example: 35, 80)."))
+        else
+            GameTooltip:AddLine(LL("Enter one or more power values separated by commas (example: 35, 80)."))
         end
         GameTooltip:Show()
     end)
     thresholdsEditBox:SetCallback("OnLeave", function() GameTooltip:Hide() end)
-    do
-        local thresholdDB = BCDM.db.profile.PowerBar.ThresholdTicks
-        local existing = thresholdDB and thresholdDB.PerSpec and classToken and specToken and thresholdDB.PerSpec[classToken] and thresholdDB.PerSpec[classToken][specToken]
-        thresholdsEditBox:SetText(FormatThresholdValues(existing))
-    end
+    thresholdsEditBox:SetText(FormatThresholdValues(thresholdDB.Values))
     toggleContainer:AddChild(thresholdsEditBox)
 
     local foregroundColourPicker = AG:Create("ColorPicker")
@@ -2335,6 +2339,7 @@ local function CreatePowerBarSettings(parentContainer)
                 foregroundColourPicker:SetDisabled(false)
             end
             local thresholdEnabled = BCDM.db.profile.PowerBar.ThresholdTicks and BCDM.db.profile.PowerBar.ThresholdTicks.Enabled
+            thresholdModeDropdown:SetDisabled(not thresholdEnabled)
             thresholdsEditBox:SetDisabled(not thresholdEnabled)
             if BCDM.db.profile.PowerBar.MatchWidthOfAnchor then
                 widthSlider:SetDisabled(true)
@@ -2775,7 +2780,7 @@ local function CreateCastBarTextSettings(parentContainer)
 end
 
 local function CreateCastBarSettings(parentContainer)
-    local CastBarDB = BCDM:GetActiveCastBarDB(true) or BCDM.db.profile.CastBar
+    local CastBarDB = BCDM.db.profile.CastBar
 
     if CastBarDB.AnchorToActiveResourceBar ~= nil then
         if CastBarDB.AnchorToActiveResourceBar then
@@ -3008,7 +3013,7 @@ local function CreateCastBarSettings(parentContainer)
 end
 
 local function CreateTertiaryResourceBarSettings(parentContainer)
-    local db = BCDM:GetActiveTertiaryResourceBarDB(true) or BCDM.db.profile.TertiaryResourceBar
+    local db = BCDM.db.profile.TertiaryResourceBar
     db.StackText = db.StackText or { Enabled = true, FontSize = 12, FrameStrata = "HIGH", Layout = {"CENTER", "CENTER", 0, 0}, Colour = {1, 1, 1, 1} }
     db.StackText.Layout = db.StackText.Layout or {"CENTER", "CENTER", 0, 0}
     local stackTextDB = db.StackText

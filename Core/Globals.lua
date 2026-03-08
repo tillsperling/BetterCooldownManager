@@ -206,111 +206,6 @@ function BCDM:CopyTable(defaultTable)
     return newTable
 end
 
-local function ResolveCurrentClassSpecTokens()
-    local classToken = select(2, UnitClass("player"))
-    if not classToken then return end
-    local specIndex = GetSpecialization()
-    if not specIndex then return classToken end
-    local specID, specName = GetSpecializationInfo(specIndex)
-    local specToken = BCDM:NormalizeSpecToken(specName, specID, specIndex)
-    return classToken, specToken
-end
-
-local function CopyTertiaryResourceConfig(source)
-    if type(source) ~= "table" then return {} end
-    local copy = {}
-    for key, value in pairs(source) do
-        if key ~= "PerSpec" then
-            if type(value) == "table" then
-                copy[key] = BCDM:CopyTable(value)
-            else
-                copy[key] = value
-            end
-        end
-    end
-    return copy
-end
-
-local function SanitizeCastBarLayout(layout, fallbackLayout)
-    local fallback = fallbackLayout or {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1}
-    if type(fallback) ~= "table" then
-        fallback = {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1}
-    end
-
-    if type(layout) ~= "table" then
-        return {
-            fallback[1] or "TOP",
-            fallback[2] or "UtilityCooldownViewer",
-            fallback[3] or "BOTTOM",
-            tonumber(fallback[4]) or 0,
-            tonumber(fallback[5]) or -1,
-        }
-    end
-
-    return {
-        type(layout[1]) == "string" and layout[1] or (fallback[1] or "TOP"),
-        type(layout[2]) == "string" and layout[2] or (fallback[2] or "UtilityCooldownViewer"),
-        type(layout[3]) == "string" and layout[3] or (fallback[3] or "BOTTOM"),
-        tonumber(layout[4]) or tonumber(fallback[4]) or 0,
-        tonumber(layout[5]) or tonumber(fallback[5]) or -1,
-    }
-end
-
-function BCDM:GetActiveTertiaryResourceBarDB(createIfMissing)
-    local profile = BCDM.db and BCDM.db.profile
-    if not profile or not profile.TertiaryResourceBar then return end
-
-    local base = profile.TertiaryResourceBar
-    base.PerSpec = base.PerSpec or {}
-    local perSpec = base.PerSpec
-
-    local classToken, specToken = ResolveCurrentClassSpecTokens()
-    if not classToken or not specToken then
-        return base, classToken, specToken
-    end
-
-    if createIfMissing then
-        perSpec[classToken] = perSpec[classToken] or {}
-        perSpec[classToken][specToken] = perSpec[classToken][specToken] or CopyTertiaryResourceConfig(base)
-    end
-
-    local specDB = perSpec[classToken] and perSpec[classToken][specToken]
-    if specDB then
-        return specDB, classToken, specToken
-    end
-
-    return base, classToken, specToken
-end
-
-function BCDM:GetActiveCastBarDB(createIfMissing)
-    local profile = BCDM.db and BCDM.db.profile
-    if not profile or not profile.CastBar then return end
-
-    local base = profile.CastBar
-    base.PerSpecLayout = base.PerSpecLayout or {}
-    local perSpecLayout = base.PerSpecLayout
-    base.Layout = SanitizeCastBarLayout(base.Layout)
-
-    local classToken, specToken = ResolveCurrentClassSpecTokens()
-    if not classToken or not specToken then
-        return base, classToken, specToken
-    end
-
-    perSpecLayout[classToken] = perSpecLayout[classToken] or {}
-    if createIfMissing and not perSpecLayout[classToken][specToken] then
-        perSpecLayout[classToken][specToken] = BCDM:CopyTable(base.Layout)
-    end
-
-    local specLayout = perSpecLayout[classToken][specToken]
-    if specLayout then
-        specLayout = SanitizeCastBarLayout(specLayout, base.Layout)
-        perSpecLayout[classToken][specToken] = specLayout
-        base.Layout = specLayout
-    end
-
-    return base, classToken, specToken
-end
-
 function BCDM:ShouldHideCDMWhileMounted()
     local isDruidFlightForm = false
     if select(2, UnitClass("player")) == "DRUID" then
@@ -440,7 +335,7 @@ function BCDM:ApplyMountedCDMVisibility()
         local tertiaryBar = _G["BCDM_TertiaryResourceBar"]
         local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
         local secondaryPowerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.SecondaryPowerBar
-        local tertiaryResourceBarDB = BCDM:GetActiveTertiaryResourceBarDB(true)
+        local tertiaryResourceBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.TertiaryResourceBar
         if powerBar and powerBarDB then
             local secondaryInPrimarySlot = secondaryBar
                 and secondaryBar:IsShown()

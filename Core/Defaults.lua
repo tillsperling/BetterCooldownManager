@@ -453,11 +453,8 @@ local Defaults = {
             Layout = {"BOTTOM", "EssentialCooldownViewer", "TOP", 0, 1},
             ThresholdTicks = {
                 Enabled = false,
-                PerSpec = {
-                    DEMONHUNTER = {
-                        VENGEANCE = {35},
-                    },
-                },
+                Mode = "POWER",
+                Values = {35},
             },
             Text = {
                 Enabled = true,
@@ -506,13 +503,12 @@ local Defaults = {
             ForegroundColour = {34/255, 34/255, 34/255, 1},
             Layout = {"TOP", "BCDM_PowerBar", "BOTTOM", 0, -1},
             StackText = {
-                Enabled = true,
+                Enabled = false,
                 FontSize = 12,
                 FrameStrata = "HIGH",
                 Layout = {"CENTER", "CENTER", 0, 0},
                 Colour = {1, 1, 1, 1},
             },
-            PerSpec = {},
         },
         CastBar = {
             Enabled = true,
@@ -542,7 +538,6 @@ local Defaults = {
                 Enabled = true,
                 Layout = "LEFT",
             },
-            PerSpecLayout = {},
         },
     },
 }

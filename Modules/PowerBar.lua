@@ -47,6 +47,24 @@ local function ResolveCurrentClassSpecTokens()
     return classToken, specToken
 end
 
+local function EnsureThresholdTickConfig(thresholdDB)
+    if type(thresholdDB) ~= "table" then return end
+
+    if type(thresholdDB.Values) ~= "table" then
+        local migratedValues
+        if type(thresholdDB.PerSpec) == "table" then
+            local classToken, specToken = ResolveCurrentClassSpecTokens()
+            if classToken and specToken and thresholdDB.PerSpec[classToken] and type(thresholdDB.PerSpec[classToken][specToken]) == "table" then
+                migratedValues = BCDM:CopyTable(thresholdDB.PerSpec[classToken][specToken])
+            end
+        end
+        thresholdDB.Values = migratedValues or {}
+    end
+
+    thresholdDB.Mode = thresholdDB.Mode == "PERCENT" and "PERCENT" or "POWER"
+    thresholdDB.PerSpec = nil
+end
+
 local function ClearPowerBarThresholdTicks(powerBar)
     if not powerBar or not powerBar.ThresholdTicks then return end
     for _, tick in ipairs(powerBar.ThresholdTicks) do
@@ -54,18 +72,12 @@ local function ClearPowerBarThresholdTicks(powerBar)
     end
 end
 
-local function GetPowerBarThresholdsForCurrentSpec()
+local function GetPowerBarThresholdConfig()
     local powerBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.PowerBar
     local thresholdDB = powerBarDB and powerBarDB.ThresholdTicks
-    if not thresholdDB or not thresholdDB.PerSpec then return end
-
-    local classToken, specToken = ResolveCurrentClassSpecTokens()
-    if not classToken or not specToken then return end
-
-    local classThresholds = thresholdDB.PerSpec[classToken]
-    if not classThresholds then return end
-
-    return classThresholds[specToken]
+    if not thresholdDB then return end
+    EnsureThresholdTickConfig(thresholdDB)
+    return thresholdDB
 end
 
 local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
@@ -78,7 +90,8 @@ local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
         return
     end
 
-    local thresholds = GetPowerBarThresholdsForCurrentSpec()
+    local thresholdConfig = GetPowerBarThresholdConfig()
+    local thresholds = thresholdConfig and thresholdConfig.Values
     if not thresholds or type(thresholds) ~= "table" then
         ClearPowerBarThresholdTicks(powerBar)
         return
@@ -92,11 +105,29 @@ local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
 
     local validThresholds = {}
     local seen = {}
+    local mode = thresholdConfig.Mode == "PERCENT" and "PERCENT" or "POWER"
     for _, threshold in ipairs(thresholds) do
         local value = tonumber(threshold)
-        if value and value > 0 and value < powerMax and not seen[value] then
-            seen[value] = true
-            validThresholds[#validThresholds + 1] = value
+        if value then
+            local relativePosition
+            if mode == "PERCENT" then
+                if value > 0 and value < 100 then
+                    relativePosition = value / 100
+                end
+            elseif value > 0 and value < powerMax then
+                relativePosition = value / powerMax
+            end
+
+            if relativePosition and relativePosition > 0 and relativePosition < 1 then
+                local key = string.format("%.4f", relativePosition)
+                if not seen[key] then
+                    seen[key] = true
+                    validThresholds[#validThresholds + 1] = {
+                        value = value,
+                        relativePosition = relativePosition,
+                    }
+                end
+            end
         end
     end
 
@@ -105,10 +136,12 @@ local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
         return
     end
 
-    table.sort(validThresholds)
+    table.sort(validThresholds, function(a, b)
+        return a.relativePosition < b.relativePosition
+    end)
 
     powerBar.ThresholdTicks = powerBar.ThresholdTicks or {}
-    for i, threshold in ipairs(validThresholds) do
+    for i, thresholdData in ipairs(validThresholds) do
         local tick = powerBar.ThresholdTicks[i]
         if not tick then
             tick = powerBar.Status:CreateTexture(nil, "OVERLAY")
@@ -116,7 +149,7 @@ local function UpdatePowerBarThresholdTicks(powerBar, powerMax)
             powerBar.ThresholdTicks[i] = tick
         end
 
-        local tickPosition = (threshold / powerMax) * barWidth
+        local tickPosition = thresholdData.relativePosition * barWidth
         tick:ClearAllPoints()
         tick:SetSize(1, powerBar:GetHeight() - 2)
         tick:SetPoint("LEFT", powerBar.Status, "LEFT", tickPosition - 0.1, 0)
