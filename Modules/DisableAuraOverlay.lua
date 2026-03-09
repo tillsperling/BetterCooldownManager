@@ -1,8 +1,6 @@
 local _, BCDM = ...
 
 local hooked = {}
-local isEnabled = false
-local eventFrame
 
 -- Thanks Ayije for this.
 -- Style.lua: Line 56 / 58
@@ -21,7 +19,7 @@ local gcdFilterCurve
 
 local function EnsureCurves()
     if desaturationCurve and gcdFilterCurve then return end
-    if not (C_CurveUtil and C_CurveUtil.CreateCurve and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step) then return end
+    if not (C_CurveUtil.CreateCurve and Enum.LuaCurveType and Enum.LuaCurveType.Step) then return end
 
     if not desaturationCurve then
         desaturationCurve = C_CurveUtil.CreateCurve()
@@ -208,7 +206,7 @@ local function ApplyAuraState(frame, spellID)
 end
 
 local function ProcessCooldownFrame(frame)
-    if not isEnabled then return end
+    if not BCDM.db.profile.CooldownManager.General.DisableAuraOverlay then return end
     if not (frame and frame.Cooldown) then return end
     if frame.Cooldown.BCDMBypassHook then return end
 
@@ -235,7 +233,7 @@ local function ProcessCooldownFrame(frame)
 end
 
 local function OnCooldownChanged(cooldown)
-    if not isEnabled then return end
+    if not BCDM.db.profile.CooldownManager.General.DisableAuraOverlay then return end
     if not cooldown or cooldown.BCDMBypassHook then return end
 
     local parent = cooldown.BCDMParentFrame
@@ -285,21 +283,18 @@ local function ScanCooldownFrames()
 end
 
 local function EnsureEventFrame()
-    if eventFrame then return end
-    eventFrame = CreateFrame("Frame")
     eventFrame:SetScript("OnEvent", function(_, event, addon) if event == "ADDON_LOADED" then if addon == "Blizzard_CooldownViewer" then C_Timer.After(0.5, ScanCooldownFrames) end return end C_Timer.After(0.1, ScanCooldownFrames) end)
 end
 
 local function EnableAuraOverlayRemoval()
-    isEnabled = true
     EnsureCurves()
-    ScanCooldownFrames()
-    EnsureEventFrame()
+    local eventFrame = CreateFrame("Frame")
     eventFrame:UnregisterAllEvents()
     eventFrame:RegisterEvent("ADDON_LOADED")
     eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
     eventFrame:RegisterEvent("SPELLS_CHANGED")
     eventFrame:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
+    C_Timer.After(0.5, ScanCooldownFrames)
 end
 
 function BCDM:DisableAuraOverlay()
