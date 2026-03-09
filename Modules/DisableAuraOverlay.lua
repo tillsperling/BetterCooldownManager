@@ -61,7 +61,7 @@ local function GetSpellID(frame)
     if not info then return nil end
 
     local spellID = info.overrideSpellID or info.spellID
-    if IsSecretNumber(spellID) then return nil end
+    if issecretvalue(spellID) then return nil end
     if type(spellID) ~= "number" or spellID <= 0 then return nil end
 
     return spellID
@@ -123,7 +123,6 @@ end
 
 local function ApplyCooldownStyle(cooldown)
     if not cooldown then return end
-
     cooldown:SetDrawSwipe(true)
     cooldown:SetDrawEdge(false)
     cooldown:SetDrawBling(true)
@@ -198,10 +197,7 @@ local function ApplyAuraState(frame, spellID)
         appliedDurationObject = SetCooldownFromDurationObject(cooldown, durationObject)
     end
 
-    if appliedDurationObject then
-        return
-    end
-
+    if appliedDurationObject then return end
     if cooldownInfo and cooldownInfo.isOnGCD then
         ClearCooldown(cooldown)
     elseif cooldownInfo and cooldownInfo.startTime and cooldownInfo.duration then
