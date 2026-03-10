@@ -316,6 +316,7 @@ local function IsEntryEnabledForPlayerSpec(entryData, playerClass, playerSpecial
     end
 
     local hasActiveFilter = false
+    local hasConfiguredFilters = next(classSpecFilters) ~= nil
     for classSpecValue, isEnabled in pairs(classSpecFilters) do
         if isEnabled then
             hasActiveFilter = true
@@ -326,7 +327,7 @@ local function IsEntryEnabledForPlayerSpec(entryData, playerClass, playerSpecial
         end
     end
 
-    return not hasActiveFilter
+    return not (hasActiveFilter or hasConfiguredFilters)
 end
 
 local function CreateCustomItemIcon(itemId)
@@ -900,7 +901,22 @@ function BCDM:AdjustItemsSpellsList(itemId, adjustingHow, entryType)
             end
         end
         local resolvedType = entryType or ResolveItemSpellEntryType(itemId)
-        Items[itemId] = { isActive = true, layoutIndex = maxIndex + 1, entryType = resolvedType }
+        local playerClass = select(2, UnitClass("player"))
+        local classSpecFilters
+        local filterClass
+        if resolvedType == "spell" then
+            filterClass = playerClass
+            classSpecFilters = BCDM:BuildClassSpecFilters(filterClass)
+        else
+            classSpecFilters = BCDM:BuildClassSpecFilters()
+        end
+        Items[itemId] = {
+            isActive = true,
+            layoutIndex = maxIndex + 1,
+            entryType = resolvedType,
+            classSpecFilters = classSpecFilters,
+            filterClass = filterClass,
+        }
     elseif adjustingHow == "remove" then
         Items[itemId] = nil
     end

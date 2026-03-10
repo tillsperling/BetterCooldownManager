@@ -281,6 +281,7 @@ local function IsEntryEnabledForPlayerSpec(entryData, playerClass, playerSpecial
     end
 
     local hasActiveFilter = false
+    local hasConfiguredFilters = next(classSpecFilters) ~= nil
     for classSpecValue, isEnabled in pairs(classSpecFilters) do
         if isEnabled then
             hasActiveFilter = true
@@ -291,7 +292,7 @@ local function IsEntryEnabledForPlayerSpec(entryData, playerClass, playerSpecial
         end
     end
 
-    return not hasActiveFilter
+    return not (hasActiveFilter or hasConfiguredFilters)
 end
 
 local function CreateCustomIcon(itemId)
@@ -790,7 +791,11 @@ function BCDM:AdjustItemList(itemId, adjustingHow)
                 maxIndex = data.layoutIndex
             end
         end
-        Items[itemId] = { isActive = true, layoutIndex = maxIndex + 1 }
+        Items[itemId] = {
+            isActive = true,
+            layoutIndex = maxIndex + 1,
+            classSpecFilters = BCDM:BuildClassSpecFilters(),
+        }
     elseif adjustingHow == "remove" then
         Items[itemId] = nil
     end
