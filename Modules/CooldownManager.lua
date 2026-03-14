@@ -423,6 +423,20 @@ local function HideAllAssistFlipbooks()
     end
 end
 
+local function ResetAllAssistHighlights()
+    for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
+        local viewer = _G[viewerName]
+        if viewer then
+            for _, icon in ipairs({ viewer:GetChildren() }) do
+                if icon then
+                    icon.BCDMActiveGlow = nil
+                    HideAssistFlipbook(icon)
+                end
+            end
+        end
+    end
+end
+
 local function GetSuggestedAssistSpell()
     if not C_AssistedCombat or not C_AssistedCombat.GetNextCastSpell then
         return nil
@@ -432,6 +446,10 @@ end
 
 local function UpdateAssistHighlightForIcon(icon, suggestedSpellID)
     if not icon or not icon.Icon then return end
+    if not icon:IsShown() or not icon.layoutIndex then
+        HideAssistFlipbook(icon)
+        return
+    end
     if not IsAssistEnabled() then
         HideAssistFlipbook(icon)
         return
@@ -506,9 +524,9 @@ end
 function BCDM:RefreshAssistHighlight()
     assistEventFrame:UnregisterAllEvents()
     assistEventFrame:SetScript("OnEvent", nil)
+    ResetAllAssistHighlights()
 
     if not IsAssistEnabled() then
-        HideAllAssistFlipbooks()
         return
     end
 
@@ -531,6 +549,7 @@ function BCDM:RefreshAssistHighlight()
         if event == "ADDON_LOADED" and addon == "Blizzard_AssistedCombat" then
             HookAssistManager()
         end
+        ResetAllAssistHighlights()
         C_Timer.After(0.05, UpdateAllAssistHighlights)
     end)
 
