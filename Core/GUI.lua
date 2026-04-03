@@ -283,6 +283,7 @@ local function BuildMainNavigationTree()
         { text = LL("Items & Spells"), value = "ItemSpell" },
         { text = LL("Power Bar"), value = "PowerBar" },
         { text = LL("Secondary Power Bar"), value = "SecondaryPowerBar" },
+        { text = LL("Tertiary Power Bar"), value = "TertiaryPowerBar" },
         { text = LL("Cast Bar"), value = "CastBar" },
         { text = LL("Profiles"), value = "Profiles" },
     }
