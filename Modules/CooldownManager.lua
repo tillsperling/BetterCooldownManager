@@ -357,6 +357,21 @@ local function IsAssistEnabled()
         and BCDM.db.profile.CooldownManager.General.HighlightAssist
 end
 
+function BCDM:SetHighlightAssistEnabled(enabled)
+    if not (BCDM.db and BCDM.db.profile and BCDM.db.profile.CooldownManager and BCDM.db.profile.CooldownManager.General) then
+        return
+    end
+
+    BCDM.db.profile.CooldownManager.General.HighlightAssist = enabled and true or false
+    BCDM:RefreshAssistHighlight()
+end
+
+function BCDM:ToggleHighlightAssist()
+    local enabled = not IsAssistEnabled()
+    BCDM:SetHighlightAssistEnabled(enabled)
+    BCDM:PrettyPrint("Highlight Assist " .. (enabled and "|cFF00FF00enabled|r." or "|cFFFF4040disabled|r."))
+end
+
 local function GetOrCreateAssistFlipbook(icon)
     if icon.BCDMAssistFlipbook then
         local iconWidth, iconHeight = icon:GetSize()

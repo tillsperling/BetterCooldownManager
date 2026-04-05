@@ -52,6 +52,12 @@ local function SetupSlashCommands()
     SLASH_BCDM3 = "/cdm"
     SLASH_BCDM4 = "/bcm"
     SlashCmdList["BCDM"] = function() BCDM:CreateGUI() end
+
+    SLASH_BCDMTOGGLEASSIST1 = "/ta"
+    SlashCmdList["BCDMTOGGLEASSIST"] = function()
+        BCDM:ToggleHighlightAssist()
+    end
+
     if BCDM.db.global.DisplayLoginMessage then BCDM:PrettyPrint("'|cFF8080FF/bcdm|r' for in-game configuration.") end
 
     SLASH_BCDMRELOAD1 = "/rl"
