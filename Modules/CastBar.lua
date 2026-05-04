@@ -1,4 +1,8 @@
 local _, BCDM = ...
+local GCD_DUMMY_SPELL_ID = 61304
+local INSTANT_CAST_RETRIGGER_DEBOUNCE = 0.15
+local lastStartedSpellID = nil
+local lastStartedWasRealCast = false
 
 local function ApplyCachedAnchorWidth(frame, anchorName, fallbackWidth)
     BCDM._AnchorWidthCache = BCDM._AnchorWidthCache or {}
@@ -62,6 +66,151 @@ local function ApplyCastBarStatusColour(isChanneled)
     end
 end
 
+local function ApplyInstantCastStatusColour()
+    if not BCDM.CastBar or not BCDM.CastBar.Status then return end
+    local colour = BCDM.db.profile.CastBar.BackgroundColour
+    BCDM.CastBar.Status:SetStatusBarColor(colour[1], colour[2], colour[3], colour[4])
+end
+
+local function ApplyCastBarBackdropColour(r, g, b, a)
+    if not BCDM.CastBar then return end
+    BCDM.CastBar:SetBackdropColor(r, g, b, a)
+end
+
+local function ApplyDefaultCastBarBackdropColour()
+    if not BCDM.CastBar then return end
+    local colour = BCDM.db.profile.CastBar.BackgroundColour
+    ApplyCastBarBackdropColour(colour[1], colour[2], colour[3], colour[4])
+end
+
+local function ApplyInstantCastBackdropColour()
+    if not BCDM.CastBar then return end
+    local colour = BCDM.db.profile.CastBar.InstantCastForegroundColour or BCDM.db.profile.CastBar.ForegroundColour
+    ApplyCastBarBackdropColour(colour[1], colour[2], colour[3], colour[4])
+end
+
+local function IsInstantCastOverlayEnabled()
+    local castBarDB = BCDM.db and BCDM.db.profile and BCDM.db.profile.CastBar
+    return castBarDB and castBarDB.ShowInstantCastOverlay
+end
+
+local function ClearCastBarPips()
+    if not BCDM.CastBar then return end
+    for _, pip in ipairs(BCDM.CastBar.Pips or {}) do
+        pip:Hide()
+        pip:SetParent(nil)
+    end
+    BCDM.CastBar.Pips = {}
+end
+
+local function StopInstantCastOverlay()
+    if not BCDM.CastBar then return end
+    BCDM.CastBar.InstantCastActive = nil
+    BCDM.CastBar.InstantCastStartTime = nil
+    BCDM.CastBar.InstantCastDuration = nil
+    BCDM.CastBar.InstantCastSpellID = nil
+end
+
+local function HideCastBarDisplay()
+    if not BCDM.CastBar then return end
+    StopInstantCastOverlay()
+    ApplyDefaultCastBarBackdropColour()
+    if BCDM.CastBar.Status.SetReverseFill then
+        BCDM.CastBar.Status:SetReverseFill(false)
+    end
+    BCDM.CastBar:Hide()
+    BCDM.CastBar:SetScript("OnUpdate", nil)
+    ClearCastBarPips()
+end
+
+local function GetSpellCooldownCompat(spellID)
+    if C_Spell and C_Spell.GetSpellCooldown then
+        local info = C_Spell.GetSpellCooldown(spellID)
+        if type(info) == "table" then
+            return info.startTime or 0, info.duration or 0, info.isEnabled
+        end
+    end
+
+    if GetSpellCooldown then
+        return GetSpellCooldown(spellID)
+    end
+
+    return 0, 0, 0
+end
+
+local function GetCurrentGCDDuration()
+    local startTime, duration = GetSpellCooldownCompat(GCD_DUMMY_SPELL_ID)
+    if type(startTime) ~= "number" or type(duration) ~= "number" then return nil end
+    if startTime <= 0 or duration <= 0 then return nil end
+    return duration
+end
+
+local function ResolveInstantCastDisplayInfo(spellID)
+    if not spellID then return nil end
+
+    local spellInfo = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellID)
+    if type(spellInfo) ~= "table" or spellInfo.castTime ~= 0 then
+        return nil
+    end
+
+    local duration = GetCurrentGCDDuration()
+    if not duration or duration <= 0 then
+        local _, baseGCDMS = GetSpellBaseCooldown(spellID)
+        if type(baseGCDMS) == "number" and baseGCDMS > 0 then
+            duration = baseGCDMS / 1000
+        end
+    end
+
+    if not duration or duration <= 0 then
+        return nil
+    end
+
+    return duration, spellInfo.name or "", spellInfo.iconID
+end
+
+local function StartInstantCastOverlay(spellID)
+    if not (BCDM.CastBar and IsInstantCastOverlayEnabled()) then return end
+    if UnitCastingInfo("player") or UnitChannelInfo("player") then return end
+
+    local duration, spellName, spellIcon = ResolveInstantCastDisplayInfo(spellID)
+    if not duration then return end
+
+    ClearCastBarPips()
+    ApplyInstantCastStatusColour()
+    ApplyInstantCastBackdropColour()
+
+    BCDM.CastBar.InstantCastActive = true
+    BCDM.CastBar.InstantCastStartTime = GetTime()
+    BCDM.CastBar.InstantCastDuration = duration
+    BCDM.CastBar.InstantCastSpellID = spellID
+
+    BCDM.CastBar.Status:SetMinMaxValues(0, duration)
+    SetBarValue(BCDM.CastBar.Status, 0)
+    if BCDM.CastBar.Status.SetReverseFill then
+        BCDM.CastBar.Status:SetReverseFill(true)
+    end
+    BCDM.CastBar.SpellNameText:SetText(GetDisplayCastText(spellName, BCDM.db.profile.CastBar.Text.SpellName.MaxCharacters))
+    BCDM.CastBar.Icon:SetTexture(spellIcon or nil)
+    BCDM.CastBar:SetScript("OnUpdate", function()
+        local elapsed = GetTime() - (BCDM.CastBar.InstantCastStartTime or 0)
+        local totalDuration = BCDM.CastBar.InstantCastDuration or 0
+        local remaining = totalDuration - elapsed
+
+        if remaining <= 0 then
+            HideCastBarDisplay()
+            return
+        end
+
+        SetBarValue(BCDM.CastBar.Status, elapsed)
+        if remaining < 5 then
+            BCDM.CastBar.CastTimeText:SetText(string.format("%.1f", remaining))
+        else
+            BCDM.CastBar.CastTimeText:SetText(string.format("%.0f", remaining))
+        end
+    end)
+    BCDM.CastBar:Show()
+end
+
 local function HasSecondaryPowerForCurrentSpec()
     local class = select(2, UnitClass("player"))
     local spec = GetSpecialization()
@@ -112,8 +261,7 @@ end
 local function CreatePips(empoweredStages)
     if not BCDM.CastBar then return end
 
-    for _, pip in ipairs(BCDM.CastBar.Pips) do pip:Hide() pip:SetParent(nil) end
-    BCDM.CastBar.Pips = {}
+    ClearCastBarPips()
 
     local totalWidth = BCDM.CastBar.Status:GetWidth()
     local cumulativePercentage = 0
@@ -132,7 +280,7 @@ local function CreatePips(empoweredStages)
     end
 end
 
-local function UpdateCastBarValues(self, event, unit)
+local function UpdateCastBarValues(self, event, unit, _, spellID)
     if not BCDM.CastBar then return end
 
     local EMPOWERED_CAST_START = {
@@ -158,6 +306,12 @@ local function UpdateCastBarValues(self, event, unit)
     }
 
     if CAST_START[event] then
+        StopInstantCastOverlay()
+        if BCDM.CastBar.Status.SetReverseFill then
+            BCDM.CastBar.Status:SetReverseFill(false)
+        end
+        lastStartedSpellID = spellID
+        lastStartedWasRealCast = true
         ApplyCastBarStatusColour(false)
         local castDuration = UnitCastingDuration("player")
         if not castDuration then return end
@@ -175,6 +329,12 @@ local function UpdateCastBarValues(self, event, unit)
         end)
         BCDM.CastBar:Show()
     elseif EMPOWERED_CAST_START[event] then
+        StopInstantCastOverlay()
+        if BCDM.CastBar.Status.SetReverseFill then
+            BCDM.CastBar.Status:SetReverseFill(false)
+        end
+        lastStartedSpellID = spellID
+        lastStartedWasRealCast = true
 		local isEmpowered = select(9, UnitChannelInfo("player"))
         local empoweredStages = UnitEmpoweredStagePercentages("player")
         if isEmpowered then
@@ -196,6 +356,12 @@ local function UpdateCastBarValues(self, event, unit)
             BCDM.CastBar:Show()
         end
     elseif CHANNEL_START[event] then
+        StopInstantCastOverlay()
+        if BCDM.CastBar.Status.SetReverseFill then
+            BCDM.CastBar.Status:SetReverseFill(false)
+        end
+        lastStartedSpellID = spellID
+        lastStartedWasRealCast = true
         ApplyCastBarStatusColour(true)
         local channelDuration = UnitChannelDuration("player")
         if not channelDuration then return end
@@ -213,11 +379,56 @@ local function UpdateCastBarValues(self, event, unit)
             end
         end)
         BCDM.CastBar:Show()
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        if not IsInstantCastOverlayEnabled() then
+            lastStartedSpellID = nil
+            lastStartedWasRealCast = false
+            return
+        end
+
+        if lastStartedWasRealCast and lastStartedSpellID == spellID then
+            lastStartedSpellID = nil
+            lastStartedWasRealCast = false
+            return
+        end
+
+        lastStartedSpellID = nil
+        lastStartedWasRealCast = false
+
+        local now = GetTime()
+        if BCDM.CastBar.LastInstantCastTriggerTime and (now - BCDM.CastBar.LastInstantCastTriggerTime) < INSTANT_CAST_RETRIGGER_DEBOUNCE then
+            if BCDM.CastBar.LastInstantCastTriggerSpellID == spellID then
+                return
+            end
+        end
+
+        if BCDM.CastBar.InstantCastActive and BCDM.CastBar.InstantCastStartTime and BCDM.CastBar.InstantCastDuration then
+            local overlayEndsAt = BCDM.CastBar.InstantCastStartTime + BCDM.CastBar.InstantCastDuration
+            if now < (overlayEndsAt - 0.05) then
+                return
+            end
+        end
+
+        BCDM.CastBar.LastInstantCastTriggerTime = now
+        BCDM.CastBar.LastInstantCastTriggerSpellID = spellID
+
+        C_Timer.After(0, function()
+            if not BCDM.CastBar then return end
+            if not IsInstantCastOverlayEnabled() then return end
+            if UnitCastingInfo("player") or UnitChannelInfo("player") then return end
+            StartInstantCastOverlay(spellID)
+        end)
     elseif CAST_STOP[event] then
+        lastStartedSpellID = nil
+        lastStartedWasRealCast = false
+        if BCDM.CastBar.InstantCastActive then
+            return
+        end
+        if BCDM.CastBar.Status.SetReverseFill then
+            BCDM.CastBar.Status:SetReverseFill(false)
+        end
         ApplyCastBarStatusColour(false)
-        BCDM.CastBar:Hide()
-        BCDM.CastBar:SetScript("OnUpdate", nil)
-        for _, pip in ipairs(BCDM.CastBar.Pips) do pip:Hide() pip:SetParent(nil) end
+        HideCastBarDisplay()
     end
 end
 
@@ -236,6 +447,9 @@ function BCDM:CreateCastBar()
     local borderSize = BCDM.db.profile.CooldownManager.General.BorderSize
 
     CastBar.Pips = {}
+    CastBar.InstantCastActive = nil
+    CastBar.LastInstantCastTriggerTime = nil
+    CastBar.LastInstantCastTriggerSpellID = nil
 
 
     CastBar:SetBackdrop(BCDM.BACKDROP)
@@ -261,6 +475,9 @@ function BCDM:CreateCastBar()
 
     CastBar.Status = CreateFrame("StatusBar", nil, CastBar)
     CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
+    if CastBar.Status.SetReverseFill then
+        CastBar.Status:SetReverseFill(false)
+    end
     if UnitChannelInfo("player") then
         CastBar.Status:SetStatusBarColor(FetchCastBarChannelColour())
     else
@@ -314,6 +531,7 @@ function BCDM:CreateCastBar()
 
     if CastBarDB.Enabled then
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+        CastBar:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
@@ -328,8 +546,10 @@ function BCDM:CreateCastBar()
 
         if CastBarDB.Icon.Enabled then CastBar.Icon:Show() else CastBar.Icon:Hide() end
 
-        CastBar:Hide()
-        PlayerCastingBarFrame:UnregisterAllEvents()
+        HideCastBarDisplay()
+        if PlayerCastingBarFrame and PlayerCastingBarFrame.UnregisterAllEvents then
+            PlayerCastingBarFrame:UnregisterAllEvents()
+        end
     end
 end
 
@@ -354,7 +574,17 @@ function BCDM:UpdateCastBar()
     end
     BCDM.CastBar:SetBackdropColor(CastBarDB.BackgroundColour[1], CastBarDB.BackgroundColour[2], CastBarDB.BackgroundColour[3], CastBarDB.BackgroundColour[4])
 
-    ApplyCastBarStatusColour(UnitChannelInfo("player") ~= nil)
+    if CastBar.Status.SetReverseFill then
+        CastBar.Status:SetReverseFill(CastBar.InstantCastActive and true or false)
+    end
+
+    if CastBar.InstantCastActive then
+        ApplyInstantCastStatusColour()
+        ApplyInstantCastBackdropColour()
+    else
+        ApplyDefaultCastBarBackdropColour()
+        ApplyCastBarStatusColour(UnitChannelInfo("player") ~= nil)
+    end
     BCDM.CastBar.Status:SetStatusBarTexture(BCDM.Media.Foreground)
 
     if CastBarDB.MatchWidthOfAnchor then
@@ -407,6 +637,7 @@ function BCDM:UpdateCastBar()
 
     if CastBarDB.Enabled then
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_START", "player")
+        CastBar:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_STOP", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
         CastBar:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
@@ -420,13 +651,18 @@ function BCDM:UpdateCastBar()
         CastBar:SetScript("OnEvent", UpdateCastBarValues)
 
         if CastBarDB.Icon.Enabled then CastBar.Icon:Show() else CastBar.Icon:Hide() end
-        local isCasting = UnitCastingInfo("player") or UnitChannelInfo("player")
-        if not isCasting then
-            CastBar:Hide()
+        if not CastBarDB.ShowInstantCastOverlay and CastBar.InstantCastActive then
+            HideCastBarDisplay()
         end
-        PlayerCastingBarFrame:UnregisterAllEvents()
+        local isCasting = UnitCastingInfo("player") or UnitChannelInfo("player") or CastBar.InstantCastActive
+        if not isCasting then
+            HideCastBarDisplay()
+        end
+        if PlayerCastingBarFrame and PlayerCastingBarFrame.UnregisterAllEvents then
+            PlayerCastingBarFrame:UnregisterAllEvents()
+        end
     else
-        CastBar:Hide()
+        HideCastBarDisplay()
         CastBar:SetScript("OnEvent", nil)
         CastBar:UnregisterAllEvents()
     end

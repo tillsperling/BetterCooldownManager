@@ -519,6 +519,7 @@ local Defaults = {
         },
         CastBar = {
             Enabled = true,
+            ShowInstantCastOverlay = false,
             Width = 200,
             Height = 24,
             MatchWidthOfAnchor = true,
@@ -527,6 +528,7 @@ local Defaults = {
             BackgroundColour = {34/255, 34/255, 34/255, 1},
             ForegroundColour = {34/255, 34/255, 34/255, 1},
             ChannelForegroundColour = {34/255, 34/255, 34/255, 1},
+            InstantCastForegroundColour = {34/255, 34/255, 34/255, 1},
             Layout = {"TOP", "UtilityCooldownViewer", "BOTTOM", 0, -1},
             Text = {
                 SpellName = {
