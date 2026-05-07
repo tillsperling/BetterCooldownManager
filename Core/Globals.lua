@@ -370,6 +370,15 @@ function BCDM:ApplyMountedCDMVisibility()
         end
     end
 
+    local trinketsViewer = _G["BCDM_TrinketsViewer"]
+    if trinketsViewer then
+        local trinketsDB = BCDM.db
+            and BCDM.db.profile
+            and BCDM.db.profile.CooldownManager
+            and BCDM.db.profile.CooldownManager.Trinkets
+        BCDM:SetFrameShownWithFade(trinketsViewer, not shouldHide and trinketsDB and trinketsDB.Enabled ~= false)
+    end
+
     if not shouldHide then
         local powerBar = _G["BCDM_PowerBar"]
         local secondaryBar = _G["BCDM_SecondaryPowerBar"]
@@ -424,18 +433,22 @@ end
 
 function BCDM:UpdateBCDM()
     BCDM:ResolveLSM()
+    BCDM:EnsureDefensivesSpellDB()
+    BCDM:EnsureBuffGroups()
     BCDM:UpdateCooldownViewer("Essential")
     BCDM:UpdateCooldownViewer("Utility")
     BCDM:UpdateCooldownViewer("Buffs")
+    BCDM:UpdateBuffGroups(true)
     BCDM:UpdatePowerBar()
     BCDM:UpdateSecondaryPowerBar()
     BCDM:UpdateTertiaryResourceBar()
     BCDM:UpdateCastBar()
+    BCDM:UpdateDefensivesViewer()
     BCDM:UpdateCustomCooldownViewer()
     BCDM:UpdateAdditionalCustomCooldownViewer()
     BCDM:UpdateCustomItemBar()
     BCDM:UpdateCustomItemsSpellsBar()
-    BCDM:UpdateTrinketBar()
+    BCDM:UpdateTrinketsViewer()
     BCDM:RefreshCustomGlows()
     BCDM:DisableAuraOverlay()
     BCDM:RefreshAssistHighlight()
@@ -597,11 +610,7 @@ function BCDM:AdjustSpellLayoutIndex(direction, spellId, customDB, targetClass, 
 
     DefensiveSpells[playerClass][playerSpecialization][spellId].layoutIndex = newIndex
     BCDM:NormalizeSpellLayoutIndices(customDB, playerClass, playerSpecialization)
-    if customDB == "Custom" then
-        BCDM:UpdateCustomCooldownViewer()
-    else
-        BCDM:UpdateAdditionalCustomCooldownViewer()
-    end
+    BCDM:UpdateCooldownViewer(customDB)
 end
 
 function BCDM:NormalizeSpellLayoutIndices(customDB, playerClass, playerSpecialization)
@@ -660,7 +669,7 @@ function BCDM:AdjustSpellList(spellId, adjustingHow, customDB, targetClass, targ
     end
 
     BCDM:NormalizeSpellLayoutIndices(customDB, playerClass, playerSpecialization)
-    BCDM:UpdateAdditionalCustomCooldownViewer()
+    BCDM:UpdateCooldownViewer(customDB)
 end
 
 
@@ -702,6 +711,26 @@ BCDM.AnchorParents = {
         },
         { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CastBar" },
     },
+    ["BuffGroups"] = {
+        {
+            ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
+            ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
+            ["BuffIconCooldownViewer"] = "|cFF00AEF7Blizzard|r: Buff Cooldown Viewer",
+            ["NONE"] = "|cFF00AEF7Blizzard|r: UIParent",
+            ["PlayerFrame"] = "|cFF00AEF7Blizzard|r: Player Frame",
+            ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
+            ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
+            ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_CastBar"] = "|cFF8080FFBCDM|r: Cast Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
+            ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
+            ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
+            ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
+            ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
+        },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "BuffIconCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CastBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketsViewer" },
+    },
     ["Custom"] = {
         {
             ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
@@ -711,12 +740,30 @@ BCDM.AnchorParents = {
             ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
             ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
             ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
             ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
-            ["BCDM_TrinketBar"] = "|cFF8080FFBCDM|r: Trinket Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketsViewer" },
+    },
+    ["Defensives"] = {
+        {
+            ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
+            ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
+            ["NONE"] = "|cFF00AEF7Blizzard|r: UIParent",
+            ["PlayerFrame"] = "|cFF00AEF7Blizzard|r: Player Frame",
+            ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
+            ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
+            ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
+            ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
+            ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
+            ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
+        },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketsViewer" },
     },
     ["AdditionalCustom"] = {
         {
@@ -727,12 +774,13 @@ BCDM.AnchorParents = {
             ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
             ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
             ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
             ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
-            ["BCDM_TrinketBar"] = "|cFF8080FFBCDM|r: Trinket Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar", "BCDM_TrinketsViewer" },
     },
     ["Item"] = {
         {
@@ -743,12 +791,13 @@ BCDM.AnchorParents = {
             ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
             ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
             ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
             ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
-            ["BCDM_TrinketBar"] = "|cFF8080FFBCDM|r: Trinket Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemSpellBar", "BCDM_TrinketBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemSpellBar", "BCDM_TrinketsViewer" },
     },
     ["Trinket"] = {
         {
@@ -759,12 +808,30 @@ BCDM.AnchorParents = {
             ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
             ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
             ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
             ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
             ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar" },
+    },
+    ["Trinkets"] = {
+        {
+            ["EssentialCooldownViewer"] = "|cFF00AEF7Blizzard|r: Essential Cooldown Viewer",
+            ["UtilityCooldownViewer"] = "|cFF00AEF7Blizzard|r: Utility Cooldown Viewer",
+            ["NONE"] = "|cFF00AEF7Blizzard|r: UIParent",
+            ["PlayerFrame"] = "|cFF00AEF7Blizzard|r: Player Frame",
+            ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
+            ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
+            ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
+            ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
+            ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
+            ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
+            ["BCDM_CustomItemSpellBar"] = "|cFF8080FFBCDM|r: Items/Spells Bar",
+        },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_CustomItemSpellBar" },
     },
     ["ItemSpell"] = {
         {
@@ -775,12 +842,13 @@ BCDM.AnchorParents = {
             ["TargetFrame"] = "|cFF00AEF7Blizzard|r: Target Frame",
             ["BCDM_PowerBar"] = "|cFF8080FFBCDM|r: Power Bar",
             ["BCDM_SecondaryPowerBar"] = "|cFF8080FFBCDM|r: Secondary Power Bar",
+            ["BCDM_DefensivesViewer"] = "|cFF8080FFBCDM|r: Defensives Bar",
             ["BCDM_CustomCooldownViewer"] = "|cFF8080FFBCDM|r: Custom Bar",
             ["BCDM_AdditionalCustomCooldownViewer"] = "|cFF8080FFBCDM|r: Additional Custom Bar",
             ["BCDM_CustomItemBar"] = "|cFF8080FFBCDM|r: Item Bar",
-            ["BCDM_TrinketBar"] = "|cFF8080FFBCDM|r: Trinket Bar",
+            ["BCDM_TrinketsViewer"] = "|cFF8080FFBCDM|r: Trinkets Bar",
         },
-        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_TrinketBar" },
+        { "EssentialCooldownViewer", "UtilityCooldownViewer", "NONE", "PlayerFrame", "TargetFrame", "BCDM_PowerBar", "BCDM_SecondaryPowerBar", "BCDM_DefensivesViewer", "BCDM_CustomCooldownViewer", "BCDM_AdditionalCustomCooldownViewer", "BCDM_CustomItemBar", "BCDM_TrinketsViewer" },
     },
     ["Power"] = {
         {

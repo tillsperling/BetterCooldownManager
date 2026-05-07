@@ -171,6 +171,7 @@ end
 local function StartInstantCastOverlay(spellID)
     if not (BCDM.CastBar and IsInstantCastOverlayEnabled()) then return end
     if UnitCastingInfo("player") or UnitChannelInfo("player") then return end
+    if BCDM:ShouldHideCDMWhileMounted() then return end
 
     local duration, spellName, spellIcon = ResolveInstantCastDisplayInfo(spellID)
     if not duration then return end
@@ -192,6 +193,11 @@ local function StartInstantCastOverlay(spellID)
     BCDM.CastBar.SpellNameText:SetText(GetDisplayCastText(spellName, BCDM.db.profile.CastBar.Text.SpellName.MaxCharacters))
     BCDM.CastBar.Icon:SetTexture(spellIcon or nil)
     BCDM.CastBar:SetScript("OnUpdate", function()
+        if BCDM:ShouldHideCDMWhileMounted() then
+            HideCastBarDisplay()
+            return
+        end
+
         local elapsed = GetTime() - (BCDM.CastBar.InstantCastStartTime or 0)
         local totalDuration = BCDM.CastBar.InstantCastDuration or 0
         local remaining = totalDuration - elapsed
@@ -415,6 +421,7 @@ local function UpdateCastBarValues(self, event, unit, _, spellID)
         C_Timer.After(0, function()
             if not BCDM.CastBar then return end
             if not IsInstantCastOverlayEnabled() then return end
+            if BCDM:ShouldHideCDMWhileMounted() then return end
             if UnitCastingInfo("player") or UnitChannelInfo("player") then return end
             StartInstantCastOverlay(spellID)
         end)

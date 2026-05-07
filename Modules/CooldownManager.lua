@@ -626,6 +626,9 @@ end
 local function SetHooks()
     hooksecurefunc(EditModeManagerFrame, "EnterEditMode", function()
         if InCombatLockdown() then return end
+        if BCDM.SuspendBuffGroups then
+            BCDM:SuspendBuffGroups()
+        end
         Position()
         BCDM:ApplyMountedCDMVisibility()
     end)
@@ -634,6 +637,13 @@ local function SetHooks()
         BCDM.LEMO:LoadLayouts()
         Position()
         BCDM:UpdateBCDM()
+        if BCDM.ResumeBuffGroups then
+            C_Timer.After(0, function()
+                if not InCombatLockdown() then
+                    BCDM:ResumeBuffGroups()
+                end
+            end)
+        end
     end)
     hooksecurefunc(CooldownViewerSettings, "RefreshLayout", function() if InCombatLockdown() then return end BCDM:UpdateBCDM() end)
     for _, viewerName in ipairs(BCDM.CooldownManagerViewers) do
@@ -834,23 +844,38 @@ function BCDM:SkinCooldownManager()
 
     C_Timer.After(1, function()
         if not InCombatLockdown() then
+            if BCDM.SuspendBuffGroups then
+                BCDM:SuspendBuffGroups()
+            end
             LEMO:ApplyChanges()
+            if BCDM.ResumeBuffGroups then
+                C_Timer.After(0, function()
+                    if not InCombatLockdown() then
+                        BCDM:ResumeBuffGroups()
+                    end
+                end)
+            end
         end
     end)
     BCDM:ApplyMountedCDMVisibility()
 end
 
 function BCDM:UpdateCooldownViewer(viewerType)
+    viewerType = (viewerType == "Trinket") and "Trinkets" or viewerType
     local cooldownManagerSettings = BCDM.db.profile.CooldownManager
     local cooldownViewerFrame = _G[BCDM.DBViewerToCooldownManagerViewer[viewerType]]
     local viewerSettings = cooldownManagerSettings[viewerType]
     local iconWidth, iconHeight = BCDM:GetIconDimensions(viewerSettings)
+    if viewerType == "Defensives" then BCDM:UpdateDefensivesViewer() return end
     if viewerType == "Custom" then BCDM:UpdateCustomCooldownViewer() return end
     if viewerType == "AdditionalCustom" then BCDM:UpdateAdditionalCustomCooldownViewer() return end
     if viewerType == "Item" then BCDM:UpdateCustomItemBar() return end
-    if viewerType == "Trinket" then BCDM:UpdateTrinketBar() return end
+    if viewerType == "Trinkets" then BCDM:UpdateTrinketsViewer() return end
     if viewerType == "ItemSpell" then BCDM:UpdateCustomItemsSpellsBar() return end
-    if viewerType == "Buffs" then SetupCenterBuffs() end
+    if viewerType == "Buffs" then
+        SetupCenterBuffs()
+        BCDM:UpdateBuffGroups(true)
+    end
 
     for _, childFrame in ipairs({cooldownViewerFrame:GetChildren()}) do
         if childFrame then
@@ -892,11 +917,13 @@ function BCDM:UpdateCooldownViewers()
     BCDM:UpdateCooldownViewer("Essential")
     BCDM:UpdateCooldownViewer("Utility")
     BCDM:UpdateCooldownViewer("Buffs")
+    BCDM:UpdateBuffGroups(true)
+    BCDM:UpdateDefensivesViewer()
     BCDM:UpdateCustomCooldownViewer()
     BCDM:UpdateAdditionalCustomCooldownViewer()
     BCDM:UpdateCustomItemBar()
     BCDM:UpdateCustomItemsSpellsBar()
-    BCDM:UpdateTrinketBar()
+    BCDM:UpdateTrinketsViewer()
     BCDM:UpdatePowerBar()
     BCDM:UpdateSecondaryPowerBar()
     BCDM:UpdateCastBar()

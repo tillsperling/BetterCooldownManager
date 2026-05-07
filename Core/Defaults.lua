@@ -169,6 +169,7 @@ local Defaults = {
                     Layout = {"BOTTOMRIGHT", "BOTTOMRIGHT", 0, 3}
                 },
             },
+            BuffGroups = {},
             BuffBar = {
                 Width = 300,
                 Height = 24,
@@ -197,6 +198,24 @@ local Defaults = {
                         Layout = {"RIGHT", "RIGHT", -3, 0}
                     },
                 }
+            },
+            Defensives = {
+                Enabled = true,
+                IconSize = 38,
+                IconWidth = 38,
+                IconHeight = 38,
+                KeepAspectRatio = true,
+                FrameStrata = "LOW",
+                Layout = {"CENTER", "NONE", "CENTER", 0, 0},
+                Spacing = 1,
+                GrowthDirection = "RIGHT",
+                Columns = 0,
+                Text = {
+                    FontSize = 12,
+                    Colour = {1, 1, 1},
+                    Layout = {"BOTTOMRIGHT", "BOTTOMRIGHT", 0, 2}
+                },
+                Spells = {},
             },
             Custom = {
                 IconSize = 38,
@@ -423,6 +442,19 @@ local Defaults = {
                 Spacing = 1,
                 GrowthDirection = "LEFT",
                 OffsetByParentHeight = true,
+            },
+            Trinkets = {
+                Enabled = true,
+                IconSize = 38,
+                IconWidth = 38,
+                IconHeight = 38,
+                KeepAspectRatio = true,
+                FrameStrata = "LOW",
+                Layout = {"CENTER", "NONE", "CENTER", 0, 0},
+                Spacing = 1,
+                GrowthDirection = "LEFT",
+                Mode = "independent",
+                ShowPassive = true,
             },
             ItemSpell = {
                 IconSize = 38,

@@ -2,6 +2,7 @@ local _, BCDM = ...
 local LibCustomGlow = LibStub("LibCustomGlow-1.0")
 
 local activeGlows = {}
+local activeBuffGroupGlows = {}
 
 local function NormalizeValue(value, defaultValue)
     if value == nil then
@@ -182,9 +183,87 @@ function BCDM:StopCustomGlow(frame)
     activeGlows[frame] = nil
 end
 
+local function StartGlowWithSettings(frame, glowType, glow, glowKey, overrideColor)
+    if glowType == "Pixel" then
+        local settings = glow.Pixel
+        local color = NormalizeColor(overrideColor, settings.Color)
+        LibCustomGlow.PixelGlow_Start(frame, color, settings.Lines, settings.Frequency, settings.Length, settings.Thickness, settings.XOffset, settings.YOffset, settings.Border, glowKey, 1)
+    elseif glowType == "Autocast" then
+        local settings = glow.Autocast
+        local color = NormalizeColor(overrideColor, settings.Color)
+        LibCustomGlow.AutoCastGlow_Start(frame, color, settings.Particles, settings.Frequency, settings.Scale, settings.XOffset, settings.YOffset, glowKey, 1)
+    elseif glowType == "Proc" then
+        local settings = glow.Proc
+        local color = NormalizeColor(overrideColor, settings.Color)
+        LibCustomGlow.ProcGlow_Start(frame, {
+            key = glowKey,
+            frameLevel = 1,
+            color = color,
+            startAnim = settings.StartAnim,
+            duration = settings.Duration,
+            xOffset = settings.XOffset,
+            yOffset = settings.YOffset,
+        })
+    elseif glowType == "Button" then
+        local settings = glow.Button
+        local color = NormalizeColor(overrideColor, settings.Color)
+        LibCustomGlow.ButtonGlow_Start(frame, color, settings.Frequency, 1)
+    end
+end
+
+local function StopGlowWithSettings(frame, glowType, glowKey)
+    if glowType == "Pixel" then
+        LibCustomGlow.PixelGlow_Stop(frame, glowKey)
+    elseif glowType == "Autocast" then
+        LibCustomGlow.AutoCastGlow_Stop(frame, glowKey)
+    elseif glowType == "Proc" then
+        LibCustomGlow.ProcGlow_Stop(frame, glowKey)
+    elseif glowType == "Button" then
+        LibCustomGlow.ButtonGlow_Stop(frame)
+    end
+end
+
+function BCDM:StartBuffGroupGlow(frame, glowTypeOverride, overrideColor)
+    if not frame then
+        return
+    end
+
+    local glow = self:GetCustomGlowSettings()
+    if not glow or not glow.Enabled then
+        self:StopBuffGroupGlow(frame)
+        return
+    end
+
+    local glowType = NormalizeGlowType(glowTypeOverride) or glow.Type or "Pixel"
+    if frame.BCDMBuffGroupGlowType and frame.BCDMBuffGroupGlowType ~= glowType then
+        self:StopBuffGroupGlow(frame)
+    end
+
+    StartGlowWithSettings(frame, glowType, glow, "BCDM_BuffGroup", overrideColor)
+    frame.BCDMBuffGroupGlowType = glowType
+    frame.BCDMBuffGroupGlowTypeOverride = glowTypeOverride
+    frame.BCDMBuffGroupGlowColor = overrideColor
+    activeBuffGroupGlows[frame] = true
+end
+
+function BCDM:StopBuffGroupGlow(frame)
+    if not frame or not frame.BCDMBuffGroupGlowType then
+        return
+    end
+
+    StopGlowWithSettings(frame, frame.BCDMBuffGroupGlowType, "BCDM_BuffGroup")
+    frame.BCDMBuffGroupGlowType = nil
+    frame.BCDMBuffGroupGlowTypeOverride = nil
+    frame.BCDMBuffGroupGlowColor = nil
+    activeBuffGroupGlows[frame] = nil
+end
+
 function BCDM:StopAllCustomGlows()
     for frame in pairs(activeGlows) do
         self:StopCustomGlow(frame)
+    end
+    for frame in pairs(activeBuffGroupGlows) do
+        self:StopBuffGroupGlow(frame)
     end
 end
 
@@ -197,6 +276,9 @@ function BCDM:RefreshCustomGlows()
 
     for frame in pairs(activeGlows) do
         self:StartCustomGlow(frame)
+    end
+    for frame in pairs(activeBuffGroupGlows) do
+        self:StartBuffGroupGlow(frame, frame.BCDMBuffGroupGlowTypeOverride, frame.BCDMBuffGroupGlowColor)
     end
 end
 

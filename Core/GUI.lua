@@ -276,10 +276,12 @@ local function BuildMainNavigationTree()
         { text = LL("Essential"), value = "Essential" },
         { text = LL("Utility"), value = "Utility" },
         { text = LL("Buffs"), value = "Buffs" },
+        { text = LL("Buff Groups"), value = "BuffGroups" },
+        { text = LL("Defensives"), value = "Defensives" },
         { text = LL("Custom"), value = "Custom" },
         { text = LL("Additional Custom"), value = "AdditionalCustom" },
         { text = LL("Item"), value = "Item" },
-        { text = LL("Trinkets"), value = "Trinket" },
+        { text = LL("Trinkets"), value = "Trinkets" },
         { text = LL("Items & Spells"), value = "ItemSpell" },
         { text = LL("Power Bar"), value = "PowerBar" },
         { text = LL("Secondary Power Bar"), value = "SecondaryPowerBar" },
@@ -1680,6 +1682,9 @@ local function CreateCooldownViewerTextSettings(parentContainer, viewerType)
 end
 
 local function CreateCooldownViewerSpellSettings(parentContainer, customDB, containerToRefresh)
+    if customDB == "Defensives" then
+        BCDM:EnsureDefensivesSpellDB()
+    end
     local SpellDB = BCDM.db.profile.CooldownManager[customDB].Spells
 
     local selectedClass, selectedSpec = ResolveSpellClassSpecSelection(customDB, SpellDB)
@@ -1756,6 +1761,11 @@ local function CreateCooldownViewerSpellSettings(parentContainer, customDB, cont
     parentContainer:AddChild(dataListDropdown)
 
     if selectedClass and selectedSpec and SpellDB[selectedClass] and SpellDB[selectedClass][selectedSpec] then
+        local builtinSpellSet = customDB == "Defensives"
+            and BCDM.DefaultDefensiveSpells
+            and BCDM.DefaultDefensiveSpells[selectedClass]
+            and BCDM.DefaultDefensiveSpells[selectedClass][selectedSpec]
+            or nil
 
         local sortedSpells = {}
 
@@ -1807,6 +1817,9 @@ local function CreateCooldownViewerSpellSettings(parentContainer, customDB, cont
                 parentContainer:ReleaseChildren()
                 CreateCooldownViewerSpellSettings(parentContainer, customDB, containerToRefresh)
             end)
+            if builtinSpellSet and builtinSpellSet[spellId] then
+                removeSpellButton:SetDisabled(true)
+            end
             parentContainer:AddChild(removeSpellButton)
         end
     end
@@ -2010,9 +2023,10 @@ local function CreateCooldownViewerItemSpellSettings(parentContainer, containerT
 end
 
 local function CreateCooldownViewerSettings(parentContainer, viewerType)
-    local hasAnchorParent = viewerType == "Utility" or viewerType == "Buffs" or viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "Trinket" or viewerType == "ItemSpell"
-    local isCustomViewer = viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "Trinket" or viewerType == "ItemSpell"
-    local supportsColumnWrap = viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "ItemSpell"
+    viewerType = (viewerType == "Trinket") and "Trinkets" or viewerType
+    local hasAnchorParent = viewerType == "Utility" or viewerType == "Buffs" or viewerType == "Defensives" or viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "Trinkets" or viewerType == "ItemSpell"
+    local isCustomViewer = viewerType == "Defensives" or viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "Trinkets" or viewerType == "ItemSpell"
+    local supportsColumnWrap = viewerType == "Defensives" or viewerType == "Custom" or viewerType == "AdditionalCustom" or viewerType == "Item" or viewerType == "ItemSpell"
 
     local ScrollFrame = AG:Create("ScrollFrame")
     ScrollFrame:SetLayout("Flow")
@@ -2077,13 +2091,52 @@ local function CreateCooldownViewerSettings(parentContainer, viewerType)
         toggleContainer:AddChild(centerHorizontallyCheckbox)
     end
 
-    if viewerType == "Trinket" then
+    if viewerType == "Defensives" then
         local enabledCheckbox = AG:Create("CheckBox")
-        enabledCheckbox:SetLabel(LL("Enable Trinket Viewer"))
-        enabledCheckbox:SetValue(BCDM.db.profile.CooldownManager.Trinket.Enabled)
-        enabledCheckbox:SetCallback("OnValueChanged", function(_, _, value) BCDM.db.profile.CooldownManager.Trinket.Enabled = value BCDM:UpdateCooldownViewer("Trinket") end)
+        enabledCheckbox:SetLabel(LL("Enable Defensives Viewer"))
+        enabledCheckbox:SetValue(BCDM.db.profile.CooldownManager.Defensives.Enabled ~= false)
+        enabledCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+            BCDM.db.profile.CooldownManager.Defensives.Enabled = value
+            BCDM:UpdateCooldownViewer("Defensives")
+        end)
         enabledCheckbox:SetRelativeWidth(1)
         ScrollFrame:AddChild(enabledCheckbox)
+    end
+
+    if viewerType == "Trinkets" then
+        local enabledCheckbox = AG:Create("CheckBox")
+        enabledCheckbox:SetLabel(LL("Enable Trinkets Viewer"))
+        enabledCheckbox:SetValue(BCDM.db.profile.CooldownManager.Trinkets.Enabled ~= false)
+        enabledCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+            BCDM.db.profile.CooldownManager.Trinkets.Enabled = value
+            BCDM:UpdateCooldownViewer("Trinkets")
+        end)
+        enabledCheckbox:SetRelativeWidth(0.5)
+        ScrollFrame:AddChild(enabledCheckbox)
+
+        local showPassiveCheckbox = AG:Create("CheckBox")
+        showPassiveCheckbox:SetLabel(LL("Show Passive Trinkets"))
+        showPassiveCheckbox:SetValue(BCDM.db.profile.CooldownManager.Trinkets.ShowPassive ~= false)
+        showPassiveCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+            BCDM.db.profile.CooldownManager.Trinkets.ShowPassive = value
+            BCDM:UpdateCooldownViewer("Trinkets")
+        end)
+        showPassiveCheckbox:SetRelativeWidth(0.5)
+        ScrollFrame:AddChild(showPassiveCheckbox)
+
+        local modeDropdown = AG:Create("Dropdown")
+        modeDropdown:SetLabel(LL("Display Mode"))
+        modeDropdown:SetList({
+            ["independent"] = LL("Independent"),
+            ["defensives"] = LL("Append to Defensives"),
+        }, { "independent", "defensives" })
+        modeDropdown:SetValue(BCDM.db.profile.CooldownManager.Trinkets.Mode or "independent")
+        modeDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            BCDM.db.profile.CooldownManager.Trinkets.Mode = value
+            BCDM:UpdateCooldownViewer("Trinkets")
+        end)
+        modeDropdown:SetRelativeWidth(1)
+        ScrollFrame:AddChild(modeDropdown)
     end
 
     local layoutContainer = AG:Create("InlineGroup")
@@ -2092,7 +2145,7 @@ local function CreateCooldownViewerSettings(parentContainer, viewerType)
     layoutContainer:SetLayout("Flow")
     ScrollFrame:AddChild(layoutContainer)
 
-    if viewerType ~= "Custom" and viewerType ~= "AdditionalCustom" and viewerType ~= "Trinket" and viewerType ~= "ItemSpell" and viewerType ~= "Item" then
+    if viewerType ~= "Custom" and viewerType ~= "AdditionalCustom" and viewerType ~= "Defensives" and viewerType ~= "Trinkets" and viewerType ~= "ItemSpell" and viewerType ~= "Item" then
         CreateInformationTag(layoutContainer, LL("|cFFFFCC00Padding|r is handled by |cFF00B0F7Blizzard|r, not |cFF8080FFBetter|rCooldownManager."))
     end
 
@@ -2105,7 +2158,11 @@ local function CreateCooldownViewerSettings(parentContainer, viewerType)
     layoutContainer:AddChild(anchorFromDropdown)
 
     if hasAnchorParent then
-        BCDMG:AddAnchors("ElvUI", {"Utility", "Custom", "AdditionalCustom", "Item", "ItemSpell", "Trinket"}, { ["ElvUF_Player"] = "|cff1784d1ElvUI|r: Player Frame", ["ElvUF_Target"] = "|cff1784d1ElvUI|r: Target Frame", })
+        BCDMG:AddAnchors("ElvUI", {"Utility", "Defensives", "Custom", "AdditionalCustom", "Item", "ItemSpell", "Trinkets"}, { ["ElvUF_Player"] = "|cff1784d1ElvUI|r: Player Frame", ["ElvUF_Target"] = "|cff1784d1ElvUI|r: Target Frame", })
+        BCDMG:AddAnchors("UnhaltedUnitFrames", {"Utility", "Defensives", "Custom", "AdditionalCustom", "Item", "ItemSpell", "Trinkets"}, {
+            ["UUF_Player"] = "|cFF8080FFUnhalted Unit Frames|r: Player Frame",
+            ["UUF_Target"] = "|cFF8080FFUnhalted Unit Frames|r: Target Frame",
+        })
         local anchorToParentDropdown = AG:Create("Dropdown")
         anchorToParentDropdown:SetLabel(LL("Anchor To Parent"))
         anchorToParentDropdown:SetList(AnchorParents[viewerType][1], AnchorParents[viewerType][2])
@@ -2288,13 +2345,13 @@ local function CreateCooldownViewerSettings(parentContainer, viewerType)
         layoutContainer:AddChild(frameStrataDropdown)
     end
 
-    if viewerType ~= "Trinket" then
+    if viewerType ~= "Trinkets" then
         CreateCooldownViewerTextSettings(ScrollFrame, viewerType)
     end
 
-    if viewerType == "Custom" or viewerType == "AdditionalCustom" then
+    if viewerType == "Defensives" or viewerType == "Custom" or viewerType == "AdditionalCustom" then
         local spellContainer = AG:Create("InlineGroup")
-        spellContainer:SetTitle(LL("Custom Spells"))
+        spellContainer:SetTitle(viewerType == "Defensives" and LL("Tracked Spells") or LL("Custom Spells"))
         spellContainer:SetFullWidth(true)
         spellContainer:SetLayout("Flow")
         ScrollFrame:AddChild(spellContainer)
@@ -2327,6 +2384,522 @@ local function CreateCooldownViewerSettings(parentContainer, viewerType)
     parentContainer:DoLayout()
 
     return ScrollFrame
+end
+
+local function CreateBuffGroupsSettings(parentContainer)
+    local scrollFrame = AG:Create("ScrollFrame")
+    scrollFrame:SetLayout("Flow")
+    parentContainer:AddChild(scrollFrame)
+
+    BCDM:EnsureBuffGroups()
+    BCDMGUI.BuffGroupPicker = BCDMGUI.BuffGroupPicker or {}
+
+    local function RefreshPage()
+        parentContainer:ReleaseChildren()
+        CreateBuffGroupsSettings(parentContainer)
+    end
+
+    local function GetOrderedGroupSpells(groupDB)
+        local ordered = {}
+        for spellID, spellData in pairs(groupDB.Spells or {}) do
+            if spellData and spellData.isActive ~= false then
+                ordered[#ordered + 1] = {
+                    spellID = spellID,
+                    sortIndex = spellData.layoutIndex or math.huge,
+                }
+            end
+        end
+
+        table.sort(ordered, function(a, b)
+            if a.sortIndex == b.sortIndex then
+                return tostring(a.spellID) < tostring(b.spellID)
+            end
+            return a.sortIndex < b.sortIndex
+        end)
+
+        return ordered
+    end
+
+    local pickerContainer = AG:Create("InlineGroup")
+    pickerContainer:SetTitle(LL("Buff Group Spell Picker"))
+    pickerContainer:SetFullWidth(true)
+    pickerContainer:SetLayout("Flow")
+    scrollFrame:AddChild(pickerContainer)
+
+    CreateInformationTag(pickerContainer, LL("Grouped buffs are moved into their own independent frames and removed from the main Buff Cooldown Viewer while active."))
+
+    local spellDropdown = AG:Create("Dropdown")
+    spellDropdown:SetLabel(LL("Tracked Buff View"))
+    local trackedBuffLabels, trackedBuffValues = BCDM:BuildTrackedBuffGroupSpellList()
+    spellDropdown:SetList(trackedBuffLabels, trackedBuffValues)
+    spellDropdown:SetRelativeWidth(0.5)
+    pickerContainer:AddChild(spellDropdown)
+
+    local refetchButton = AG:Create("Button")
+    refetchButton:SetText(LL("Refetch Buff View"))
+    refetchButton:SetRelativeWidth(0.2)
+    refetchButton:SetCallback("OnClick", function()
+        BCDM:UpdateBuffGroups(true)
+        RefreshPage()
+    end)
+    pickerContainer:AddChild(refetchButton)
+
+    local addGroupButton = AG:Create("Button")
+    addGroupButton:SetText(LL("Add Group"))
+    addGroupButton:SetRelativeWidth(0.15)
+    addGroupButton:SetCallback("OnClick", function()
+        BCDM:CreateBuffGroup()
+        RefreshPage()
+    end)
+    pickerContainer:AddChild(addGroupButton)
+
+    if #trackedBuffValues == 0 then
+        CreateInformationTag(pickerContainer, LL("No tracked buffs were found in the live CDM buff view. Trigger the buffs you want or press Refetch Buff View after CDM updates."))
+    end
+
+    local groups = BCDM.db.profile.CooldownManager.BuffGroups or {}
+    for groupIndex, groupDB in ipairs(groups) do
+        local groupContainer = AG:Create("InlineGroup")
+        groupContainer:SetTitle(groupDB.Name or (LL("Buff Group") .. " " .. groupIndex))
+        groupContainer:SetFullWidth(true)
+        groupContainer:SetLayout("Flow")
+        scrollFrame:AddChild(groupContainer)
+
+        local nameEdit = AG:Create("EditBox")
+        nameEdit:SetLabel(LL("Group Name"))
+        nameEdit:SetText(groupDB.Name or "")
+        nameEdit:DisableButton(true)
+        nameEdit:SetRelativeWidth(0.4)
+        nameEdit:SetCallback("OnEnterPressed", function(widget)
+            groupDB.Name = widget:GetText()
+            RefreshPage()
+        end)
+        nameEdit:SetCallback("OnTextChanged", function(_, _, value)
+            groupDB.Name = value
+        end)
+        groupContainer:AddChild(nameEdit)
+
+        local enabledCheckbox = AG:Create("CheckBox")
+        enabledCheckbox:SetLabel(LL("Enabled"))
+        enabledCheckbox:SetValue(groupDB.Enabled ~= false)
+        enabledCheckbox:SetRelativeWidth(0.15)
+        enabledCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Enabled = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        groupContainer:AddChild(enabledCheckbox)
+
+        local addSelectedButton = AG:Create("Button")
+        addSelectedButton:SetText(LL("Add Selected Spell"))
+        addSelectedButton:SetRelativeWidth(0.25)
+        addSelectedButton:SetCallback("OnClick", function()
+            local spellID = tonumber(spellDropdown:GetValue())
+            if not spellID or spellID <= 0 then return end
+            BCDM:AdjustBuffGroupSpellList(groupIndex, spellID, "add")
+            RefreshPage()
+        end)
+        groupContainer:AddChild(addSelectedButton)
+
+        local removeGroupButton = AG:Create("Button")
+        removeGroupButton:SetText(LL("Remove Group"))
+        removeGroupButton:SetRelativeWidth(0.2)
+        removeGroupButton:SetCallback("OnClick", function()
+            BCDM:DeleteBuffGroup(groupIndex)
+            RefreshPage()
+        end)
+        groupContainer:AddChild(removeGroupButton)
+
+        local layoutContainer = AG:Create("InlineGroup")
+        layoutContainer:SetTitle(LL("Layout & Positioning"))
+        layoutContainer:SetFullWidth(true)
+        layoutContainer:SetLayout("Flow")
+        groupContainer:AddChild(layoutContainer)
+
+        local anchorFromDropdown = AG:Create("Dropdown")
+        anchorFromDropdown:SetLabel(LL("Anchor From"))
+        anchorFromDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+        anchorFromDropdown:SetValue(groupDB.Layout[1])
+        anchorFromDropdown:SetRelativeWidth(0.2)
+        anchorFromDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Layout[1] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(anchorFromDropdown)
+
+        local anchorParentDropdown = AG:Create("Dropdown")
+        anchorParentDropdown:SetLabel(LL("Anchor Parent"))
+        anchorParentDropdown:SetList(AnchorParents["BuffGroups"][1], AnchorParents["BuffGroups"][2])
+        anchorParentDropdown:SetValue(groupDB.Layout[2])
+        anchorParentDropdown:SetRelativeWidth(0.4)
+        anchorParentDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Layout[2] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(anchorParentDropdown)
+
+        local anchorToDropdown = AG:Create("Dropdown")
+        anchorToDropdown:SetLabel(LL("Anchor To"))
+        anchorToDropdown:SetList(AnchorPoints[1], AnchorPoints[2])
+        anchorToDropdown:SetValue(groupDB.Layout[3])
+        anchorToDropdown:SetRelativeWidth(0.2)
+        anchorToDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Layout[3] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(anchorToDropdown)
+
+        local growthDropdown = AG:Create("Dropdown")
+        growthDropdown:SetLabel(LL("Growth Direction"))
+        growthDropdown:SetList({["LEFT"] = "Left", ["RIGHT"] = "Right", ["UP"] = "Up", ["DOWN"] = "Down"}, {"UP", "DOWN", "LEFT", "RIGHT"})
+        growthDropdown:SetValue(groupDB.GrowthDirection or "RIGHT")
+        growthDropdown:SetRelativeWidth(0.2)
+        growthDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.GrowthDirection = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(growthDropdown)
+
+        local spacingSlider = AG:Create("Slider")
+        spacingSlider:SetLabel(LL("Icon Spacing"))
+        spacingSlider:SetSliderValues(-1, 32, 0.1)
+        spacingSlider:SetValue(groupDB.Spacing or 1)
+        spacingSlider:SetRelativeWidth(0.2)
+        spacingSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Spacing = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(spacingSlider)
+
+        local wrapSlider = AG:Create("Slider")
+        wrapSlider:SetLabel(LL("Wrap After"))
+        wrapSlider:SetSliderValues(0, 24, 1)
+        wrapSlider:SetValue(groupDB.Columns or 0)
+        wrapSlider:SetRelativeWidth(0.2)
+        wrapSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Columns = math.max(0, math.floor(value or 0))
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(wrapSlider)
+
+        local xOffsetSlider = AG:Create("Slider")
+        xOffsetSlider:SetLabel(LL("X Offset"))
+        xOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+        xOffsetSlider:SetValue(groupDB.Layout[4] or 0)
+        xOffsetSlider:SetRelativeWidth(0.2)
+        xOffsetSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Layout[4] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(xOffsetSlider)
+
+        local yOffsetSlider = AG:Create("Slider")
+        yOffsetSlider:SetLabel(LL("Y Offset"))
+        yOffsetSlider:SetSliderValues(-3000, 3000, 0.1)
+        yOffsetSlider:SetValue(groupDB.Layout[5] or 0)
+        yOffsetSlider:SetRelativeWidth(0.2)
+        yOffsetSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Layout[5] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(yOffsetSlider)
+
+        local strataDropdown = AG:Create("Dropdown")
+        strataDropdown:SetLabel(LL("Frame Strata"))
+        strataDropdown:SetList({["BACKGROUND"] = "Background", ["LOW"] = "Low", ["MEDIUM"] = "Medium", ["HIGH"] = "High", ["DIALOG"] = "Dialog", ["FULLSCREEN"] = "Fullscreen", ["FULLSCREEN_DIALOG"] = "Fullscreen Dialog", ["TOOLTIP"] = "Tooltip"}, {"BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP"})
+        strataDropdown:SetValue(groupDB.FrameStrata or "LOW")
+        strataDropdown:SetRelativeWidth(0.2)
+        strataDropdown:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.FrameStrata = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        layoutContainer:AddChild(strataDropdown)
+
+        local iconContainer = AG:Create("InlineGroup")
+        iconContainer:SetTitle(LL("Icon Settings"))
+        iconContainer:SetFullWidth(true)
+        iconContainer:SetLayout("Flow")
+        groupContainer:AddChild(iconContainer)
+
+        local keepAspectCheckbox = AG:Create("CheckBox")
+        keepAspectCheckbox:SetLabel(LL("Keep Aspect Ratio"))
+        keepAspectCheckbox:SetValue(groupDB.KeepAspectRatio ~= false)
+        keepAspectCheckbox:SetRelativeWidth(0.25)
+        iconContainer:AddChild(keepAspectCheckbox)
+
+        local iconSizeSlider = AG:Create("Slider")
+        iconSizeSlider:SetLabel(LL("Icon Size"))
+        iconSizeSlider:SetSliderValues(16, 128, 0.1)
+        iconSizeSlider:SetValue(groupDB.IconSize or 32)
+        iconSizeSlider:SetRelativeWidth(0.25)
+        iconContainer:AddChild(iconSizeSlider)
+
+        local iconWidthSlider = AG:Create("Slider")
+        iconWidthSlider:SetLabel(LL("Icon Width"))
+        iconWidthSlider:SetSliderValues(16, 128, 0.1)
+        iconWidthSlider:SetValue(groupDB.IconWidth or groupDB.IconSize or 32)
+        iconWidthSlider:SetRelativeWidth(0.25)
+        iconContainer:AddChild(iconWidthSlider)
+
+        local iconHeightSlider = AG:Create("Slider")
+        iconHeightSlider:SetLabel(LL("Icon Height"))
+        iconHeightSlider:SetSliderValues(16, 128, 0.1)
+        iconHeightSlider:SetValue(groupDB.IconHeight or groupDB.IconSize or 32)
+        iconHeightSlider:SetRelativeWidth(0.25)
+        iconContainer:AddChild(iconHeightSlider)
+
+        local function UpdateIconControlState()
+            local keepAspect = groupDB.KeepAspectRatio ~= false
+            DeepDisable(iconSizeSlider, not keepAspect)
+            DeepDisable(iconWidthSlider, keepAspect)
+            DeepDisable(iconHeightSlider, keepAspect)
+        end
+
+        keepAspectCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.KeepAspectRatio = value
+            if value then
+                groupDB.IconSize = groupDB.IconWidth or groupDB.IconHeight or groupDB.IconSize or 32
+            else
+                groupDB.IconWidth = groupDB.IconWidth or groupDB.IconSize or 32
+                groupDB.IconHeight = groupDB.IconHeight or groupDB.IconSize or 32
+            end
+            UpdateIconControlState()
+            BCDM:UpdateBuffGroups(true)
+        end)
+
+        iconSizeSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.IconSize = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        iconWidthSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.IconWidth = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        iconHeightSlider:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.IconHeight = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+
+        UpdateIconControlState()
+
+        local spellContainer = AG:Create("InlineGroup")
+        spellContainer:SetTitle(LL("Tracked Buff Spells"))
+        spellContainer:SetFullWidth(true)
+        spellContainer:SetLayout("Flow")
+        groupContainer:AddChild(spellContainer)
+
+        local manualSpellID = AG:Create("EditBox")
+        manualSpellID:SetLabel(LL("Manual Spell ID"))
+        manualSpellID:SetText("")
+        manualSpellID:DisableButton(true)
+        manualSpellID:SetRelativeWidth(0.3)
+        spellContainer:AddChild(manualSpellID)
+
+        local addManualButton = AG:Create("Button")
+        addManualButton:SetText(LL("Add Manual Spell"))
+        addManualButton:SetRelativeWidth(0.2)
+        addManualButton:SetCallback("OnClick", function()
+            local spellID = tonumber(manualSpellID:GetText())
+            if not spellID or spellID <= 0 then return end
+            BCDM:AdjustBuffGroupSpellList(groupIndex, spellID, "add")
+            RefreshPage()
+        end)
+        spellContainer:AddChild(addManualButton)
+
+        local textContainer = AG:Create("InlineGroup")
+        textContainer:SetTitle(LL("Charge/Application Text"))
+        textContainer:SetFullWidth(true)
+        textContainer:SetLayout("Flow")
+        groupContainer:AddChild(textContainer)
+
+        local textAnchorFrom = AG:Create("Dropdown")
+        textAnchorFrom:SetLabel(LL("Anchor From"))
+        textAnchorFrom:SetList(AnchorPoints[1], AnchorPoints[2])
+        textAnchorFrom:SetValue(groupDB.Text.Layout[1])
+        textAnchorFrom:SetRelativeWidth(0.25)
+        textAnchorFrom:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Text.Layout[1] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textAnchorFrom)
+
+        local textAnchorTo = AG:Create("Dropdown")
+        textAnchorTo:SetLabel(LL("Anchor To"))
+        textAnchorTo:SetList(AnchorPoints[1], AnchorPoints[2])
+        textAnchorTo:SetValue(groupDB.Text.Layout[2])
+        textAnchorTo:SetRelativeWidth(0.25)
+        textAnchorTo:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Text.Layout[2] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textAnchorTo)
+
+        local textXOffset = AG:Create("Slider")
+        textXOffset:SetLabel(LL("X Offset"))
+        textXOffset:SetSliderValues(-64, 64, 0.1)
+        textXOffset:SetValue(groupDB.Text.Layout[3] or 0)
+        textXOffset:SetRelativeWidth(0.25)
+        textXOffset:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Text.Layout[3] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textXOffset)
+
+        local textYOffset = AG:Create("Slider")
+        textYOffset:SetLabel(LL("Y Offset"))
+        textYOffset:SetSliderValues(-64, 64, 0.1)
+        textYOffset:SetValue(groupDB.Text.Layout[4] or 0)
+        textYOffset:SetRelativeWidth(0.25)
+        textYOffset:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Text.Layout[4] = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textYOffset)
+
+        local textFontSize = AG:Create("Slider")
+        textFontSize:SetLabel(LL("Font Size"))
+        textFontSize:SetSliderValues(6, 32, 1)
+        textFontSize:SetValue(groupDB.Text.FontSize or 15)
+        textFontSize:SetRelativeWidth(0.5)
+        textFontSize:SetCallback("OnValueChanged", function(_, _, value)
+            groupDB.Text.FontSize = value
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textFontSize)
+
+        local textColour = AG:Create("ColorPicker")
+        textColour:SetLabel(LL("Text Colour"))
+        textColour:SetRelativeWidth(0.5)
+        textColour:SetHasAlpha(false)
+        textColour:SetColor(unpack(groupDB.Text.Colour or {1, 1, 1}))
+        textColour:SetCallback("OnValueChanged", function(_, _, r, g, b)
+            groupDB.Text.Colour = {r, g, b}
+            BCDM:UpdateBuffGroups(true)
+        end)
+        textContainer:AddChild(textColour)
+
+        local orderedSpells = GetOrderedGroupSpells(groupDB)
+        if #orderedSpells == 0 then
+            CreateInformationTag(spellContainer, LL("No buff spells added to this group yet."))
+        else
+            for _, entry in ipairs(orderedSpells) do
+                local row = AG:Create("SimpleGroup")
+                row:SetFullWidth(true)
+                row:SetLayout("Flow")
+                spellContainer:AddChild(row)
+
+                local spellData = groupDB.Spells and groupDB.Spells[entry.spellID] or nil
+
+                local label = AG:Create("InteractiveLabel")
+                label:SetText("[" .. entry.sortIndex .. "] " .. (FetchSpellInformation(entry.spellID) or (LL("SpellID") .. ": " .. tostring(entry.spellID))))
+                label:SetRelativeWidth(0.4)
+                row:AddChild(label)
+
+                local glowCheckbox = AG:Create("CheckBox")
+                glowCheckbox:SetLabel(LL("Glow"))
+                glowCheckbox:SetValue(spellData and spellData.GlowEnabled or false)
+                glowCheckbox:SetRelativeWidth(0.08)
+                glowCheckbox:SetCallback("OnValueChanged", function(_, _, value)
+                    BCDM:SetBuffGroupSpellGlow(
+                        groupIndex,
+                        entry.spellID,
+                        value,
+                        spellData and spellData.GlowType or "Pixel",
+                        spellData and spellData.GlowUseDefaultColor ~= false or true,
+                        spellData and spellData.GlowColor or {1, 1, 1, 1}
+                    )
+                    RefreshPage()
+                end)
+                row:AddChild(glowCheckbox)
+
+                local glowTypeDropdown = AG:Create("Dropdown")
+                glowTypeDropdown:SetLabel(LL("Glow Type"))
+                glowTypeDropdown:SetList({
+                    Pixel = "Pixel",
+                    Autocast = "Autocast",
+                    Proc = "Proc",
+                    Button = "Action Button",
+                })
+                glowTypeDropdown:SetValue(spellData and spellData.GlowType or "Pixel")
+                glowTypeDropdown:SetRelativeWidth(0.17)
+                glowTypeDropdown:SetCallback("OnValueChanged", function(_, _, value)
+                    BCDM:SetBuffGroupSpellGlow(
+                        groupIndex,
+                        entry.spellID,
+                        true,
+                        value,
+                        spellData and spellData.GlowUseDefaultColor ~= false or true,
+                        spellData and spellData.GlowColor or {1, 1, 1, 1}
+                    )
+                end)
+                row:AddChild(glowTypeDropdown)
+
+                local useDefaultGlowColor = AG:Create("CheckBox")
+                useDefaultGlowColor:SetLabel(LL("Default Color"))
+                useDefaultGlowColor:SetValue(spellData and spellData.GlowUseDefaultColor ~= false or true)
+                useDefaultGlowColor:SetRelativeWidth(0.12)
+                useDefaultGlowColor:SetCallback("OnValueChanged", function(_, _, value)
+                    BCDM:SetBuffGroupSpellGlow(
+                        groupIndex,
+                        entry.spellID,
+                        true,
+                        spellData and spellData.GlowType or "Pixel",
+                        value,
+                        spellData and spellData.GlowColor or {1, 1, 1, 1}
+                    )
+                    RefreshPage()
+                end)
+                row:AddChild(useDefaultGlowColor)
+
+                local glowColor = AG:Create("ColorPicker")
+                glowColor:SetLabel(LL("Glow Colour"))
+                glowColor:SetHasAlpha(true)
+                glowColor:SetColor(unpack((spellData and spellData.GlowColor) or {1, 1, 1, 1}))
+                glowColor:SetRelativeWidth(0.16)
+                glowColor:SetDisabled(spellData and spellData.GlowUseDefaultColor ~= false or true)
+                glowColor:SetCallback("OnValueChanged", function(_, _, r, g, b, a)
+                    BCDM:SetBuffGroupSpellGlow(
+                        groupIndex,
+                        entry.spellID,
+                        true,
+                        spellData and spellData.GlowType or "Pixel",
+                        false,
+                        {r, g, b, a}
+                    )
+                end)
+                row:AddChild(glowColor)
+
+                local moveUp = AG:Create("Button")
+                moveUp:SetText(LL("Up"))
+                moveUp:SetRelativeWidth(0.09)
+                moveUp:SetCallback("OnClick", function()
+                    BCDM:AdjustBuffGroupSpellLayout(groupIndex, entry.spellID, -1)
+                    RefreshPage()
+                end)
+                row:AddChild(moveUp)
+
+                local moveDown = AG:Create("Button")
+                moveDown:SetText(LL("Down"))
+                moveDown:SetRelativeWidth(0.09)
+                moveDown:SetCallback("OnClick", function()
+                    BCDM:AdjustBuffGroupSpellLayout(groupIndex, entry.spellID, 1)
+                    RefreshPage()
+                end)
+                row:AddChild(moveDown)
+
+                local removeSpell = AG:Create("Button")
+                removeSpell:SetText(LL("Remove"))
+                removeSpell:SetRelativeWidth(0.09)
+                removeSpell:SetCallback("OnClick", function()
+                    BCDM:AdjustBuffGroupSpellList(groupIndex, entry.spellID, "remove")
+                    RefreshPage()
+                end)
+                row:AddChild(removeSpell)
+            end
+        end
+    end
+
+    scrollFrame:DoLayout()
+    return scrollFrame
 end
 
 local function CreatePowerBarTextSettings(parentContainer)
@@ -3948,7 +4521,28 @@ function BCDM:CreateGUI()
     Container:SetWidth(1100)
     Container:SetHeight(600)
     Container:EnableResize(false)
-    Container:SetCallback("OnClose", function(widget) AG:Release(widget) LEMO:ApplyChanges() BCDM:UpdateBCDM() isGUIOpen = false BCDM.CAST_BAR_TEST_MODE = false BCDM:CreateTestCastBar() BCDM.EssentialCooldownViewerOverlay:Hide() BCDM.UtilityCooldownViewerOverlay:Hide() BCDM.BuffIconCooldownViewerOverlay:Hide() if CooldownViewerSettings:IsShown() then CooldownViewerSettings:Hide() end end)
+    Container:SetCallback("OnClose", function(widget)
+        AG:Release(widget)
+        if BCDM.SuspendBuffGroups then
+            BCDM:SuspendBuffGroups()
+        end
+        LEMO:ApplyChanges()
+        BCDM:UpdateBCDM()
+        if BCDM.ResumeBuffGroups then
+            C_Timer.After(0, function()
+                if not InCombatLockdown() then
+                    BCDM:ResumeBuffGroups()
+                end
+            end)
+        end
+        isGUIOpen = false
+        BCDM.CAST_BAR_TEST_MODE = false
+        BCDM:CreateTestCastBar()
+        BCDM.EssentialCooldownViewerOverlay:Hide()
+        BCDM.UtilityCooldownViewerOverlay:Hide()
+        BCDM.BuffIconCooldownViewerOverlay:Hide()
+        if CooldownViewerSettings:IsShown() then CooldownViewerSettings:Hide() end
+    end)
 
     local function SelectTab(GUIContainer, _, MainTab)
         GUIContainer:ReleaseChildren()
@@ -3971,14 +4565,18 @@ function BCDM:CreateGUI()
             CreateCooldownViewerSettings(Wrapper, "Utility")
         elseif MainTab == "Buffs" then
             CreateCooldownViewerSettings(Wrapper, "Buffs")
+        elseif MainTab == "BuffGroups" then
+            CreateBuffGroupsSettings(Wrapper)
+        elseif MainTab == "Defensives" then
+            CreateCooldownViewerSettings(Wrapper, "Defensives")
         elseif MainTab == "Custom" then
             CreateCooldownViewerSettings(Wrapper, "Custom")
         elseif MainTab == "AdditionalCustom" then
             CreateCooldownViewerSettings(Wrapper, "AdditionalCustom")
         elseif MainTab == "Item" then
             CreateCooldownViewerSettings(Wrapper, "Item")
-        elseif MainTab == "Trinket" then
-            CreateCooldownViewerSettings(Wrapper, "Trinket")
+        elseif MainTab == "Trinkets" then
+            CreateCooldownViewerSettings(Wrapper, "Trinkets")
         elseif MainTab == "ItemSpell" then
             CreateCooldownViewerSettings(Wrapper, "ItemSpell")
         elseif MainTab == "PowerBar" then

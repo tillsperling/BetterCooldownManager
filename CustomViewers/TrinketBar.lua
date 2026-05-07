@@ -10,28 +10,28 @@ local function FetchCooldownTextRegion(cooldown)
 end
 
 local function ApplyCooldownText()
-    local CooldownManagerDB = BCDM.db.profile
-    local GeneralDB = CooldownManagerDB.General
-    local CooldownTextDB = CooldownManagerDB.CooldownManager.General.CooldownText
-    local Viewer = _G["BCDM_TrinketBar"]
-    if not Viewer then return end
-    for _, icon in ipairs({ Viewer:GetChildren() }) do
+    local cooldownManagerDB = BCDM.db.profile
+    local generalDB = cooldownManagerDB.General
+    local cooldownTextDB = cooldownManagerDB.CooldownManager.General.CooldownText
+    local viewer = _G["BCDM_TrinketsViewer"]
+    if not viewer then return end
+    for _, icon in ipairs({ viewer:GetChildren() }) do
         if icon and icon.Cooldown then
             local textRegion = FetchCooldownTextRegion(icon.Cooldown)
             if textRegion then
-                if CooldownTextDB.ScaleByIconSize then
+                if cooldownTextDB.ScaleByIconSize then
                     local iconWidth = icon:GetWidth()
                     local scaleFactor = iconWidth / 36
-                    textRegion:SetFont(BCDM.Media.Font, CooldownTextDB.FontSize * scaleFactor, GeneralDB.Fonts.FontFlag)
+                    textRegion:SetFont(BCDM.Media.Font, cooldownTextDB.FontSize * scaleFactor, generalDB.Fonts.FontFlag)
                 else
-                    textRegion:SetFont(BCDM.Media.Font, CooldownTextDB.FontSize, GeneralDB.Fonts.FontFlag)
+                    textRegion:SetFont(BCDM.Media.Font, cooldownTextDB.FontSize, generalDB.Fonts.FontFlag)
                 end
-                textRegion:SetTextColor(CooldownTextDB.Colour[1], CooldownTextDB.Colour[2], CooldownTextDB.Colour[3], 1)
+                textRegion:SetTextColor(cooldownTextDB.Colour[1], cooldownTextDB.Colour[2], cooldownTextDB.Colour[3], 1)
                 textRegion:ClearAllPoints()
-                textRegion:SetPoint(CooldownTextDB.Layout[1], icon, CooldownTextDB.Layout[2], CooldownTextDB.Layout[3], CooldownTextDB.Layout[4])
-                if GeneralDB.Fonts.Shadow.Enabled then
-                    textRegion:SetShadowColor(GeneralDB.Fonts.Shadow.Colour[1], GeneralDB.Fonts.Shadow.Colour[2], GeneralDB.Fonts.Shadow.Colour[3], GeneralDB.Fonts.Shadow.Colour[4])
-                    textRegion:SetShadowOffset(GeneralDB.Fonts.Shadow.OffsetX, GeneralDB.Fonts.Shadow.OffsetY)
+                textRegion:SetPoint(cooldownTextDB.Layout[1], icon, cooldownTextDB.Layout[2], cooldownTextDB.Layout[3], cooldownTextDB.Layout[4])
+                if generalDB.Fonts.Shadow.Enabled then
+                    textRegion:SetShadowColor(generalDB.Fonts.Shadow.Colour[1], generalDB.Fonts.Shadow.Colour[2], generalDB.Fonts.Shadow.Colour[3], generalDB.Fonts.Shadow.Colour[4])
+                    textRegion:SetShadowOffset(generalDB.Fonts.Shadow.OffsetX, generalDB.Fonts.Shadow.OffsetY)
                 else
                     textRegion:SetShadowColor(0, 0, 0, 0)
                     textRegion:SetShadowOffset(0, 0)
@@ -70,29 +70,25 @@ local function IsOnUseTrinket(itemId)
     return (spellID and spellID > 0) or (spellName and spellName ~= "")
 end
 
-local function FetchEquippedOnUseTrinkets()
+local function FetchEquippedTrinkets(showPassive)
     local equipped = {}
-    local trinketSlots = { 13, 14 }
-
-    for _, slotID in ipairs(trinketSlots) do
+    for _, slotID in ipairs({ 13, 14 }) do
         local itemId = GetInventoryItemID("player", slotID)
-        if itemId and IsOnUseTrinket(itemId) then
+        if itemId and (showPassive or IsOnUseTrinket(itemId)) then
             equipped[#equipped + 1] = { itemId = itemId, slotID = slotID }
         end
     end
-
     return equipped
 end
 
 local function CreateCustomIcon(itemId, slotID)
-    local CooldownManagerDB = BCDM.db.profile
-    local GeneralDB = CooldownManagerDB.General
-    local CustomDB = CooldownManagerDB.CooldownManager.Trinket
+    local cooldownManagerDB = BCDM.db.profile
+    local customDB = cooldownManagerDB.CooldownManager.Trinkets
     if not itemId then return end
     if not C_Item.GetItemInfo(itemId) then return end
 
     local uniqueFrameId = slotID or itemId
-    local customIcon = CreateFrame("Button", "BCDM_Custom_Trinket_" .. uniqueFrameId, UIParent, "BackdropTemplate")
+    local customIcon = CreateFrame("Button", "BCDM_Trinket_" .. uniqueFrameId, UIParent, "BackdropTemplate")
     customIcon:SetBackdrop({ edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = BCDM.db.profile.CooldownManager.General.BorderSize, insets = { left = 0, right = 0, top = 0, bottom = 0 } })
     customIcon:SetBackdropColor(0, 0, 0, 0)
     if BCDM.db.profile.CooldownManager.General.BorderSize <= 0 then
@@ -100,18 +96,12 @@ local function CreateCustomIcon(itemId, slotID)
     else
         customIcon:SetBackdropBorderColor(0, 0, 0, 1)
     end
-    local iconWidth, iconHeight = BCDM:GetIconDimensions(CustomDB)
+    local iconWidth, iconHeight = BCDM:GetIconDimensions(customDB)
     customIcon:SetSize(iconWidth, iconHeight)
-    local anchorParent = CustomDB.Layout[2] == "NONE" and UIParent or _G[CustomDB.Layout[2]]
-    customIcon:SetPoint(CustomDB.Layout[1], anchorParent, CustomDB.Layout[3], CustomDB.Layout[4], CustomDB.Layout[5])
     customIcon:RegisterEvent("SPELL_UPDATE_COOLDOWN")
     customIcon:RegisterEvent("PLAYER_ENTERING_WORLD")
     customIcon:EnableMouse(false)
-    customIcon:SetFrameStrata(CustomDB.FrameStrata or "LOW")
-
-    local HighLevelContainer = CreateFrame("Frame", nil, customIcon)
-    HighLevelContainer:SetAllPoints(customIcon)
-    HighLevelContainer:SetFrameLevel(customIcon:GetFrameLevel() + 999)
+    customIcon:SetFrameStrata(customDB.FrameStrata or "LOW")
 
     customIcon.Cooldown = CreateFrame("Cooldown", nil, customIcon, "CooldownFrameTemplate")
     customIcon.Cooldown:SetAllPoints(customIcon)
@@ -121,23 +111,21 @@ local function CreateCustomIcon(itemId, slotID)
     customIcon.Cooldown:SetHideCountdownNumbers(false)
     customIcon.Cooldown:SetReverse(false)
 
-    customIcon:HookScript("OnEvent", function(self, event, ...)
-        if event == "SPELL_UPDATE_COOLDOWN" or event == "PLAYER_ENTERING_WORLD" then
-            local startTime, durationTime = FetchItemData(itemId)
-            local hasActiveCooldown = (startTime and durationTime and startTime > 0 and durationTime > 0) or false
-            if hasActiveCooldown then
-                local durationObject = C_DurationUtil.CreateDuration()
-                durationObject:SetTimeFromStart(startTime, durationTime)
-                customIcon.Cooldown:SetCooldownFromDurationObject(durationObject, true)
-                if BCDM:IsSecretValue(startTime) or BCDM:IsSecretValue(durationTime) then
-                    SetIconDesaturation(customIcon.Icon, 0)
-                else
-                    SetIconDesaturation(customIcon.Icon, CalculateFallbackDesaturation(startTime, durationTime))
-                end
-            else
-                customIcon.Cooldown:SetCooldownFromDurationObject(C_DurationUtil.CreateDuration(), true)
+    customIcon:HookScript("OnEvent", function()
+        local startTime, durationTime = FetchItemData(itemId)
+        local hasActiveCooldown = (startTime and durationTime and startTime > 0 and durationTime > 0) or false
+        if hasActiveCooldown then
+            local durationObject = C_DurationUtil.CreateDuration()
+            durationObject:SetTimeFromStart(startTime, durationTime)
+            customIcon.Cooldown:SetCooldownFromDurationObject(durationObject, true)
+            if BCDM:IsSecretValue(startTime) or BCDM:IsSecretValue(durationTime) then
                 SetIconDesaturation(customIcon.Icon, 0)
+            else
+                SetIconDesaturation(customIcon.Icon, CalculateFallbackDesaturation(startTime, durationTime))
             end
+        else
+            customIcon.Cooldown:SetCooldownFromDurationObject(C_DurationUtil.CreateDuration(), true)
+            SetIconDesaturation(customIcon.Icon, 0)
         end
     end)
 
@@ -155,7 +143,8 @@ end
 local function CreateCustomIcons(iconTable)
     wipe(iconTable)
 
-    local trinkets = FetchEquippedOnUseTrinkets()
+    local trinketsDB = BCDM.db.profile.CooldownManager.Trinkets
+    local trinkets = FetchEquippedTrinkets(trinketsDB.ShowPassive ~= false)
     for _, trinketEntry in ipairs(trinkets) do
         local customTrinket = CreateCustomIcon(trinketEntry.itemId, trinketEntry.slotID)
         if customTrinket then
@@ -164,14 +153,8 @@ local function CreateCustomIcons(iconTable)
     end
 end
 
-local function LayoutTrinketBar()
-    local CooldownManagerDB = BCDM.db.profile
-    local CustomDB = CooldownManagerDB.CooldownManager.Trinket
-    local customTrinketIcons = {}
-
-    local growthDirection = CustomDB.GrowthDirection or "RIGHT"
-
-    local containerAnchorFrom = CustomDB.Layout[1]
+local function GetContainerAnchor(customDB, growthDirection)
+    local containerAnchorFrom = customDB.Layout[1]
     if growthDirection == "UP" then
         local verticalFlipMap = {
             ["TOPLEFT"] = "BOTTOMLEFT",
@@ -181,57 +164,89 @@ local function LayoutTrinketBar()
             ["BOTTOM"] = "TOP",
             ["BOTTOMRIGHT"] = "TOPRIGHT",
         }
-        containerAnchorFrom = verticalFlipMap[CustomDB.Layout[1]] or CustomDB.Layout[1]
+        containerAnchorFrom = verticalFlipMap[customDB.Layout[1]] or customDB.Layout[1]
+    end
+    return containerAnchorFrom
+end
+
+local function PositionTrinketsContainer(customDB, growthDirection)
+    local anchorFrom = GetContainerAnchor(customDB, growthDirection)
+    BCDM.TrinketsViewerContainer:ClearAllPoints()
+
+    if customDB.Mode == "defensives" then
+        local defensives = BCDM.DefensivesViewerContainer
+        if defensives and defensives:IsShown() then
+            local defensivesPoint = select(1, defensives:GetPoint(1)) or "TOPLEFT"
+            if defensivesPoint:find("RIGHT") then
+                BCDM.TrinketsViewerContainer:SetPoint("TOPLEFT", defensives, "TOPRIGHT", customDB.Spacing or 1, 0)
+            else
+                BCDM.TrinketsViewerContainer:SetPoint("TOPRIGHT", defensives, "TOPLEFT", -(customDB.Spacing or 1), 0)
+            end
+            return
+        end
     end
 
-    if not BCDM.TrinketBarContainer then
-        BCDM.TrinketBarContainer = CreateFrame("Frame", "BCDM_TrinketBar", UIParent, "BackdropTemplate")
-        BCDM.TrinketBarContainer:SetSize(1, 1)
+    local anchorParent = customDB.Layout[2] == "NONE" and UIParent or _G[customDB.Layout[2]]
+    BCDM.TrinketsViewerContainer:SetPoint(anchorFrom, anchorParent, customDB.Layout[3], customDB.Layout[4], customDB.Layout[5])
+end
+
+local function LayoutTrinketsViewer()
+    local cooldownManagerDB = BCDM.db.profile
+    local customDB = cooldownManagerDB.CooldownManager.Trinkets
+    local customTrinketIcons = {}
+
+    local growthDirection = customDB.GrowthDirection or "RIGHT"
+
+    if not BCDM.TrinketsViewerContainer then
+        BCDM.TrinketsViewerContainer = CreateFrame("Frame", "BCDM_TrinketsViewer", UIParent, "BackdropTemplate")
+        BCDM.TrinketsViewerContainer:SetSize(1, 1)
     end
 
-    BCDM.TrinketBarContainer:ClearAllPoints()
-    BCDM.TrinketBarContainer:SetFrameStrata(CustomDB.FrameStrata or "LOW")
-    local anchorParent = CustomDB.Layout[2] == "NONE" and UIParent or _G[CustomDB.Layout[2]]
-    BCDM.TrinketBarContainer:SetPoint(containerAnchorFrom, anchorParent, CustomDB.Layout[3], CustomDB.Layout[4], CustomDB.Layout[5])
+    BCDM.TrinketsViewerContainer:SetFrameStrata(customDB.FrameStrata or "LOW")
+    PositionTrinketsContainer(customDB, growthDirection)
 
-    for _, child in ipairs({BCDM.TrinketBarContainer:GetChildren()}) do child:UnregisterAllEvents() child:Hide() child:SetParent(nil) end
+    for _, child in ipairs({ BCDM.TrinketsViewerContainer:GetChildren() }) do
+        child:UnregisterAllEvents()
+        child:Hide()
+        child:SetParent(nil)
+    end
 
     CreateCustomIcons(customTrinketIcons)
 
-    local iconWidth, iconHeight = BCDM:GetIconDimensions(CustomDB)
-    local iconSpacing = CustomDB.Spacing
+    local iconWidth, iconHeight = BCDM:GetIconDimensions(customDB)
+    local iconSpacing = customDB.Spacing
 
     if #customTrinketIcons == 0 then
-        BCDM.TrinketBarContainer:SetSize(1, 1)
+        BCDM.TrinketsViewerContainer:SetSize(1, 1)
     else
-        local point = select(1, BCDM.TrinketBarContainer:GetPoint(1))
+        local point = select(1, BCDM.TrinketsViewerContainer:GetPoint(1))
         local useCenteredLayout = (point == "TOP" or point == "BOTTOM") and (growthDirection == "LEFT" or growthDirection == "RIGHT")
 
         local totalWidth, totalHeight = 0, 0
         if useCenteredLayout or growthDirection == "RIGHT" or growthDirection == "LEFT" then
             totalWidth = (#customTrinketIcons * iconWidth) + ((#customTrinketIcons - 1) * iconSpacing)
             totalHeight = iconHeight
-        elseif growthDirection == "UP" or growthDirection == "DOWN" then
+        else
             totalWidth = iconWidth
             totalHeight = (#customTrinketIcons * iconHeight) + ((#customTrinketIcons - 1) * iconSpacing)
         end
-        BCDM.TrinketBarContainer:SetWidth(totalWidth)
-        BCDM.TrinketBarContainer:SetHeight(totalHeight)
+        BCDM.TrinketsViewerContainer:SetWidth(totalWidth)
+        BCDM.TrinketsViewerContainer:SetHeight(totalHeight)
     end
 
-    local LayoutConfig = {
-        TOPLEFT     = { anchor="TOPLEFT",     xMult=1,  yMult=1  },
-        TOP         = { anchor="TOP",         xMult=0,  yMult=1  },
-        TOPRIGHT    = { anchor="TOPRIGHT",    xMult=-1, yMult=1  },
-        BOTTOMLEFT  = { anchor="BOTTOMLEFT",  xMult=1,  yMult=-1 },
-        BOTTOM      = { anchor="BOTTOM",      xMult=0,  yMult=-1 },
-        BOTTOMRIGHT = { anchor="BOTTOMRIGHT", xMult=-1, yMult=-1 },
-        LEFT        = { anchor="LEFT",        xMult=1,  yMult=0  },
-        RIGHT       = { anchor="RIGHT",       xMult=-1, yMult=0  },
-        CENTER      = { anchor="CENTER",      xMult=0,  yMult=0  },
+    local layoutConfig = {
+        TOPLEFT = { anchor = "TOPLEFT" },
+        TOP = { anchor = "TOP" },
+        TOPRIGHT = { anchor = "TOPRIGHT" },
+        BOTTOMLEFT = { anchor = "BOTTOMLEFT" },
+        BOTTOM = { anchor = "BOTTOM" },
+        BOTTOMRIGHT = { anchor = "BOTTOMRIGHT" },
+        LEFT = { anchor = "LEFT" },
+        RIGHT = { anchor = "RIGHT" },
+        CENTER = { anchor = "CENTER" },
     }
 
-    local point = select(1, BCDM.TrinketBarContainer:GetPoint(1))
+    local point = select(1, BCDM.TrinketsViewerContainer:GetPoint(1))
     local useCenteredLayout = (point == "TOP" or point == "BOTTOM") and (growthDirection == "LEFT" or growthDirection == "RIGHT")
 
     if useCenteredLayout and #customTrinketIcons > 0 then
@@ -239,24 +254,24 @@ local function LayoutTrinketBar()
         local startOffset = -(totalWidth / 2) + (iconWidth / 2)
 
         for i, spellIcon in ipairs(customTrinketIcons) do
-            spellIcon:SetParent(BCDM.TrinketBarContainer)
+            spellIcon:SetParent(BCDM.TrinketsViewerContainer)
             spellIcon:SetSize(iconWidth, iconHeight)
             spellIcon:ClearAllPoints()
 
             local xOffset = startOffset + ((i - 1) * (iconWidth + iconSpacing))
-            spellIcon:SetPoint("CENTER", BCDM.TrinketBarContainer, "CENTER", xOffset, 0)
+            spellIcon:SetPoint("CENTER", BCDM.TrinketsViewerContainer, "CENTER", xOffset, 0)
             ApplyCooldownText()
             spellIcon:Show()
         end
     else
         for i, spellIcon in ipairs(customTrinketIcons) do
-            spellIcon:SetParent(BCDM.TrinketBarContainer)
+            spellIcon:SetParent(BCDM.TrinketsViewerContainer)
             spellIcon:SetSize(iconWidth, iconHeight)
             spellIcon:ClearAllPoints()
 
             if i == 1 then
-                local config = LayoutConfig[point] or LayoutConfig.TOPLEFT
-                spellIcon:SetPoint(config.anchor, BCDM.TrinketBarContainer, config.anchor, 0, 0)
+                local config = layoutConfig[point] or layoutConfig.TOPLEFT
+                spellIcon:SetPoint(config.anchor, BCDM.TrinketsViewerContainer, config.anchor, 0, 0)
             else
                 if growthDirection == "RIGHT" then
                     spellIcon:SetPoint("LEFT", customTrinketIcons[i - 1], "RIGHT", iconSpacing, 0)
@@ -273,39 +288,51 @@ local function LayoutTrinketBar()
         end
     end
 
-    if CustomDB.Enabled and #customTrinketIcons > 0 then
-        BCDM.TrinketBarContainer:Show()
-    else
-        BCDM.TrinketBarContainer:Hide()
+    BCDM.TrinketsViewerContainer:Show()
+end
+
+function BCDM:SetupTrinketsViewer()
+    LayoutTrinketsViewer()
+    if BCDM:ShouldHideCDMWhileMounted() and BCDM.TrinketsViewerContainer then
+        BCDM:SetFrameShownWithFade(BCDM.TrinketsViewerContainer, false)
+    end
+end
+
+function BCDM:UpdateTrinketsViewer()
+    local customDB = BCDM.db.profile.CooldownManager.Trinkets
+    if customDB.Enabled == false then
+        if BCDM.TrinketsViewerContainer then
+            BCDM.TrinketsViewerContainer:Hide()
+        end
+        return
+    end
+    LayoutTrinketsViewer()
+    if BCDM:ShouldHideCDMWhileMounted() and BCDM.TrinketsViewerContainer then
+        BCDM:SetFrameShownWithFade(BCDM.TrinketsViewerContainer, false)
     end
 end
 
 function BCDM:SetupTrinketBar()
-    LayoutTrinketBar()
+    BCDM:SetupTrinketsViewer()
 end
 
 function BCDM:UpdateTrinketBar()
-    local CooldownManagerDB = BCDM.db.profile
-    local CustomDB = CooldownManagerDB.CooldownManager.Trinket
-    local isEnabled = CustomDB.Enabled
-    if BCDM.TrinketBarContainer and isEnabled then
-        BCDM.TrinketBarContainer:ClearAllPoints()
-        local anchorParent = CustomDB.Layout[2] == "NONE" and UIParent or _G[CustomDB.Layout[2]]
-        BCDM.TrinketBarContainer:SetPoint(CustomDB.Layout[1], anchorParent, CustomDB.Layout[3], CustomDB.Layout[4], CustomDB.Layout[5])
-        LayoutTrinketBar()
-    else
-        if BCDM.TrinketBarContainer then
-            BCDM.TrinketBarContainer:Hide()
-        end
+    BCDM:UpdateTrinketsViewer()
+end
+
+local trinketCheckEvent = CreateFrame("Frame")
+trinketCheckEvent:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+trinketCheckEvent:RegisterEvent("PLAYER_LOGIN")
+trinketCheckEvent:RegisterEvent("PLAYER_ENTERING_WORLD")
+trinketCheckEvent:SetScript("OnEvent", function(_, event, slot)
+    if InCombatLockdown() then return end
+    if event == "PLAYER_LOGIN" or event == "PLAYER_ENTERING_WORLD" then
+        C_Timer.After(1, function()
+            BCDM:UpdateTrinketsViewer()
+        end)
+        return
     end
-end
-
-function BCDM:AdjustTrinketLayoutIndex(direction, itemId)
-    -- Legacy compatibility: trinket order is now driven by equipment slot (13, 14).
-    BCDM:UpdateTrinketBar()
-end
-
-function BCDM:AdjustTrinketList(itemId, adjustingHow)
-    -- Legacy compatibility: trinket list is now driven by equipped on-use trinkets.
-    BCDM:UpdateTrinketBar()
-end
+    if event == "PLAYER_EQUIPMENT_CHANGED" and (slot == 13 or slot == 14) then
+        BCDM:UpdateTrinketsViewer()
+    end
+end)

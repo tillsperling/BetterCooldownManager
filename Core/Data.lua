@@ -530,6 +530,8 @@ local DEFENSIVE_SPELLS = {
     }
 }
 
+BCDM.DefaultDefensiveSpells = DEFENSIVE_SPELLS
+
 local ITEMS = {
     [241304] = { isActive = true, layoutIndex = 1 }, -- Silvermoon Healing Potion
     [241308] = { isActive = true, layoutIndex = 2 }, -- Light's Potential
@@ -648,6 +650,47 @@ function BCDM:AddRecommendedSpells(customDB)
     end
 end
 
+local function CopySpellEntries(source)
+    local copied = {}
+    if type(source) ~= "table" then
+        return copied
+    end
+    for spellId, data in pairs(source) do
+        copied[spellId] = {
+            isActive = data.isActive ~= false,
+            layoutIndex = data.layoutIndex or 1,
+        }
+    end
+    return copied
+end
+
+function BCDM:EnsureDefensivesSpellDB()
+    local cooldownManagerDB = self.db and self.db.profile and self.db.profile.CooldownManager
+    local defensivesDB = cooldownManagerDB and cooldownManagerDB.Defensives
+    if not defensivesDB then return end
+
+    defensivesDB.Spells = defensivesDB.Spells or {}
+
+    for classToken, specs in pairs(DEFENSIVE_SPELLS) do
+        defensivesDB.Spells[classToken] = defensivesDB.Spells[classToken] or {}
+        for specToken, spells in pairs(specs) do
+            if type(defensivesDB.Spells[classToken][specToken]) ~= "table" then
+                defensivesDB.Spells[classToken][specToken] = CopySpellEntries(spells)
+            else
+                for spellId, data in pairs(spells) do
+                    if not defensivesDB.Spells[classToken][specToken][spellId] then
+                        defensivesDB.Spells[classToken][specToken][spellId] = {
+                            isActive = data.isActive ~= false,
+                            layoutIndex = data.layoutIndex or 1,
+                        }
+                    end
+                end
+                self:NormalizeSpellLayoutIndices("Defensives", classToken, specToken)
+            end
+        end
+    end
+end
+
 -- Event check for equipped trinkets; trinket icons are driven directly from slots 13/14.
 local trinketCheckEvent = CreateFrame("Frame")
 trinketCheckEvent:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
@@ -665,11 +708,11 @@ end)
 
 function BCDM:FetchEquippedTrinkets()
     if InCombatLockdown() then return end
-    if not BCDM.db.profile.CooldownManager.Trinket.Enabled then
-        if BCDM.TrinketBarContainer then BCDM.TrinketBarContainer:Hide() end
+    if not BCDM.db.profile.CooldownManager.Trinkets.Enabled then
+        if BCDM.TrinketsViewerContainer then BCDM.TrinketsViewerContainer:Hide() end
         return
     end
-    BCDM:UpdateCooldownViewer("Trinket")
+    BCDM:UpdateCooldownViewer("Trinkets")
 end
 
 function BCDM:AddRacials(customDB)
